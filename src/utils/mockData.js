@@ -55,6 +55,13 @@ export const mockNCs = [
   { id: 2, description: 'Documentación desactualizada', severity: 'minor', source: 'internal', status: 'inAnalysis', detectionDate: '2024-02-05', progress: 50, standard: 'iso27001' },
 ];
 
+// Hallazgos de auditoría mock
+export const mockFindings = [
+  { id: 1, auditId: 1, description: 'El manual de calidad no incluye el proceso de mejora continua', severity: 'major', clause: '10.3', requirement: 'Mejora continua del SGC', requiredAction: 'Actualizar manual de calidad', deadline: '2024-03-15', responsible: 'Jefe de Calidad', status: 'open' },
+  { id: 2, auditId: 1, description: 'No se evidencia seguimiento a indicadores de proceso', severity: 'minor', clause: '9.1.3', requirement: 'Análisis y evaluación', requiredAction: 'Implementar tablero de indicadores', deadline: '2024-03-30', responsible: 'Coordinador de Calidad', status: 'open' },
+  { id: 3, auditId: 2, description: 'Falta de registros de control de acceso a sistemas', severity: 'critical', clause: '9.4.2', requirement: 'Control de accesos', requiredAction: 'Implementar logs de acceso', deadline: '2024-03-10', responsible: 'Jefe de TI', status: 'inProgress' },
+];
+
 // Dashboard stats mock
 export const mockDashboardStats = {
   documents: 245,
