@@ -1,15 +1,17 @@
 // src/components/modules/nonconformities/NCAnalysis.jsx
 import React, { useState } from 'react';
-import { Modal, Steps, Form, Input, Button, Card, Timeline, Tag, Space, message } from 'antd';
+import { Modal, Steps, Form, Input, Button, Card, Timeline, Tag, Space, message, DatePicker, Select } from 'antd';
 import { CheckCircleOutlined, SolutionOutlined, ToolOutlined, AuditOutlined } from '@ant-design/icons';
+import dayjs from 'dayjs';
 
 const { Step } = Steps;
 const { TextArea } = Input;
 
-const NCAnalysis = ({ visible, onClose, nc }) => {
+const NCAnalysis = ({ visible, onClose, nc, onSave }) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [form] = Form.useForm();
   const [rootCause, setRootCause] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   const steps = [
     { title: 'Identificación', icon: <SolutionOutlined /> },
@@ -30,26 +32,32 @@ const NCAnalysis = ({ visible, onClose, nc }) => {
   };
 
   const handleSubmitActions = async (values) => {
+    setLoading(true);
     const analysis = {
       ncId: nc?.id,
       rootCause: rootCause,
       correctiveActions: values.correctiveActions,
       preventiveActions: values.preventiveActions,
       responsible: values.responsible,
-      deadline: values.deadline,
+      deadline: values.deadline?.format('YYYY-MM-DD'),
+      verificationDate: values.verificationDate?.format('YYYY-MM-DD'),
     };
-    console.log('Análisis completado:', analysis);
+    await onSave(analysis);
+    setLoading(false);
     message.success('Análisis guardado exitosamente');
     onClose();
   };
 
+  if (!nc) return null;
+
   return (
     <Modal
-      title={`Análisis de Causa Raíz - NC #${nc?.id}`}
+      title={`Análisis de Causa Raíz - NC #${nc.id}`}
       open={visible}
       onCancel={onClose}
       width={800}
       footer={null}
+      destroyOnClose
     >
       <Steps current={currentStep} className="mb-8">
         {steps.map(step => (
@@ -60,12 +68,15 @@ const NCAnalysis = ({ visible, onClose, nc }) => {
       {currentStep === 0 && (
         <Card>
           <h4 className="font-semibold mb-2">No Conformidad</h4>
-          <p>{nc?.description}</p>
+          <p>{nc.description}</p>
           <Space className="mt-2">
-            <Tag color="red">{nc?.severity}</Tag>
-            <Tag>{nc?.source}</Tag>
-            <Tag>{nc?.standard}</Tag>
+            <Tag color={nc.severity === 'critical' ? 'red' : nc.severity === 'major' ? 'orange' : 'yellow'}>
+              {nc.severity?.toUpperCase()}
+            </Tag>
+            <Tag>{nc.source}</Tag>
+            <Tag>{nc.standard?.toUpperCase()}</Tag>
           </Space>
+          {nc.clause && <div className="mt-2"><Tag color="blue">Cláusula: {nc.clause}</Tag></div>}
           <div className="mt-4">
             <Button type="primary" onClick={() => setCurrentStep(1)}>
               Iniciar Análisis
@@ -77,6 +88,7 @@ const NCAnalysis = ({ visible, onClose, nc }) => {
       {currentStep === 1 && (
         <Form onFinish={handleWhyAnalysis} layout="vertical">
           <h4 className="font-semibold mb-4">Método de los 5 Porqués</h4>
+          <p className="text-gray-500 mb-4">Responda las siguientes preguntas para identificar la causa raíz:</p>
           {[1, 2, 3, 4, 5].map((num) => (
             <Form.Item
               key={num}
@@ -88,20 +100,28 @@ const NCAnalysis = ({ visible, onClose, nc }) => {
             </Form.Item>
           ))}
           <Form.Item>
-            <Button type="primary" htmlType="submit">
-              Analizar Causa Raíz
-            </Button>
+            <Space>
+              <Button onClick={() => setCurrentStep(0)}>Atrás</Button>
+              <Button type="primary" htmlType="submit">
+                Analizar Causa Raíz
+              </Button>
+            </Space>
           </Form.Item>
         </Form>
       )}
 
       {currentStep === 2 && (
-        <Form onFinish={handleSubmitActions} layout="vertical">
+        <Form onFinish={handleSubmitActions} layout="vertical" initialValues={{
+          deadline: dayjs().add(15, 'day'),
+          verificationDate: dayjs().add(30, 'day'),
+        }}>
           <Card className="mb-4">
             <h4 className="font-semibold mb-2">Causa Raíz Identificada</h4>
             <Timeline>
               {rootCause.map((cause, idx) => (
-                <Timeline.Item key={idx}>{cause}</Timeline.Item>
+                <Timeline.Item key={idx} color={idx === rootCause.length - 1 ? 'red' : 'blue'}>
+                  {cause}
+                </Timeline.Item>
               ))}
             </Timeline>
           </Card>
@@ -109,7 +129,7 @@ const NCAnalysis = ({ visible, onClose, nc }) => {
           <Form.Item
             name="correctiveActions"
             label="Acciones Correctivas"
-            rules={[{ required: true }]}
+            rules={[{ required: true, message: 'Ingrese las acciones correctivas' }]}
           >
             <TextArea rows={3} placeholder="Acciones para eliminar la causa raíz" />
           </Form.Item>
@@ -126,7 +146,12 @@ const NCAnalysis = ({ visible, onClose, nc }) => {
             label="Responsable de Implementación"
             rules={[{ required: true }]}
           >
-            <Input placeholder="Nombre del responsable" />
+            <Select placeholder="Seleccione el responsable">
+              <Select.Option value="Juan Pérez">Juan Pérez</Select.Option>
+              <Select.Option value="María López">María López</Select.Option>
+              <Select.Option value="Carlos Ruiz">Carlos Ruiz</Select.Option>
+              <Select.Option value="Ana Martínez">Ana Martínez</Select.Option>
+            </Select>
           </Form.Item>
 
           <Form.Item
@@ -134,18 +159,34 @@ const NCAnalysis = ({ visible, onClose, nc }) => {
             label="Fecha Límite"
             rules={[{ required: true }]}
           >
-            <Input placeholder="DD/MM/AAAA" />
+            <DatePicker className="w-full" format="DD/MM/YYYY" />
+          </Form.Item>
+
+          <Form.Item
+            name="verificationDate"
+            label="Fecha de Verificación Planificada"
+          >
+            <DatePicker className="w-full" format="DD/MM/YYYY" />
           </Form.Item>
 
           <Form.Item>
             <Space>
               <Button onClick={() => setCurrentStep(1)}>Atrás</Button>
-              <Button type="primary" htmlType="submit">
+              <Button type="primary" htmlType="submit" loading={loading}>
                 Guardar Análisis
               </Button>
             </Space>
           </Form.Item>
         </Form>
+      )}
+
+      {currentStep === 3 && (
+        <Card className="text-center">
+          <CheckCircleOutlined style={{ fontSize: 64, color: '#52c41a' }} />
+          <h3 className="mt-4">Análisis Completado</h3>
+          <p>Las acciones correctivas han sido registradas.</p>
+          <Button type="primary" onClick={onClose}>Cerrar</Button>
+        </Card>
       )}
     </Modal>
   );

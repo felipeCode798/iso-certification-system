@@ -15,22 +15,14 @@ const LoginPage = () => {
 
   const handleLogin = async (values) => {
     setLoading(true);
-    // Simular login - En producción conectar con API real
-    setTimeout(() => {
-      if (values.email === 'admin@iso.com' && values.password === 'admin123') {
-        localStorage.setItem('token', 'fake-token');
-        localStorage.setItem('user', JSON.stringify({ 
-          name: 'Administrador', 
-          email: values.email, 
-          role: 'admin' 
-        }));
-        message.success('Bienvenido al Sistema de Gestión ISO');
-        navigate('/');
-      } else {
-        message.error('Credenciales incorrectas');
-      }
-      setLoading(false);
-    }, 1000);
+    const result = await login(values);
+    if (result.success) {
+      message.success('Bienvenido al Sistema de Gestión ISO');
+      navigate('/');
+    } else {
+      message.error(result.error);
+    }
+    setLoading(false);
   };
 
   const handleRegister = async (values) => {

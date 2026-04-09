@@ -1,8 +1,8 @@
+// src/components/modules/documentation/DocumentForm.jsx
 import React, { useState, useEffect } from 'react';
-import { Form, Input, Select, Upload, Button, DatePicker, InputNumber, message } from 'antd';
+import { Form, Input, Select, Upload, Button, DatePicker, message, Modal } from 'antd';
 import { InboxOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import FormModal from '../../common/Modals/FormModal';
 import { useCreateDocumentMutation, useUpdateDocumentMutation } from '../../../services/api/documentationService';
 
 const { TextArea } = Input;
@@ -11,33 +11,52 @@ const { Dragger } = Upload;
 const DocumentForm = ({ visible, onClose, document = null }) => {
   const [form] = Form.useForm();
   const [fileList, setFileList] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const { mutateAsync: createDocument } = useCreateDocumentMutation();
+  const { mutateAsync: updateDocument } = useUpdateDocumentMutation();
 
-  // ✅ FIX: useMutation retorna objeto, no array
-  const { mutateAsync: createDocument, isLoading: creating } = useCreateDocumentMutation();
-  const { mutateAsync: updateDocument, isLoading: updating } = useUpdateDocumentMutation();
-
-  // Rellenar el form al editar
   useEffect(() => {
-    if (visible && document) {
-      form.setFieldsValue({
-        ...document,
-        approvalDate: document.approvalDate ? dayjs(document.approvalDate) : null,
-        reviewDate: document.reviewDate ? dayjs(document.reviewDate) : null,
-      });
-    } else if (visible) {
-      form.resetFields();
-      setFileList([]);
+    if (visible) {
+      if (document) {
+        form.setFieldsValue({
+          code: document.code,
+          title: document.title,
+          type: document.type,
+          version: document.version,
+          status: document.status,
+          description: document.description,
+          approvalDate: document.approvalDate ? dayjs(document.approvalDate) : null,
+          reviewDate: document.reviewDate ? dayjs(document.reviewDate) : null,
+          responsible: document.responsible,
+        });
+      } else {
+        form.resetFields();
+        setFileList([]);
+        // Valores por defecto
+        form.setFieldsValue({
+          version: '1.0',
+          status: 'borrador',
+        });
+      }
     }
   }, [visible, document, form]);
 
   const handleSubmit = async (values) => {
+    setLoading(true);
     try {
       const payload = {
-        ...values,
-        approvalDate: values.approvalDate?.format('YYYY-MM-DD'),
-        reviewDate: values.reviewDate?.format('YYYY-MM-DD'),
-        file: fileList[0]?.originFileObj || null,
+        code: values.code,
+        title: values.title,
+        type: values.type,
+        version: values.version,
+        status: values.status || 'borrador',
+        description: values.description || '',
+        approvalDate: values.approvalDate ? values.approvalDate.format('YYYY-MM-DD') : null,
+        reviewDate: values.reviewDate ? values.reviewDate.format('YYYY-MM-DD') : null,
+        responsible: values.responsible || '',
       };
+
+      console.log('📤 Enviando payload:', payload);
 
       if (document) {
         await updateDocument({ id: document.id, data: payload });
@@ -51,7 +70,15 @@ const DocumentForm = ({ visible, onClose, document = null }) => {
       setFileList([]);
       onClose();
     } catch (error) {
-      message.error('Error al guardar el documento');
+      console.error('Error:', error);
+      const errorMsg = error.response?.data?.message;
+      if (Array.isArray(errorMsg)) {
+        message.error(errorMsg.join(', '));
+      } else {
+        message.error(errorMsg || 'Error al guardar el documento');
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -64,7 +91,7 @@ const DocumentForm = ({ visible, onClose, document = null }) => {
         return false;
       }
       setFileList([file]);
-      return false; // Evitar upload automático
+      return false;
     },
     fileList,
     accept: '.pdf,.doc,.docx,.xls,.xlsx',
@@ -72,16 +99,20 @@ const DocumentForm = ({ visible, onClose, document = null }) => {
   };
 
   return (
-    <FormModal
-      visible={visible}
-      onCancel={onClose}
-      onSubmit={handleSubmit}
+    <Modal
       title={document ? 'Editar Documento' : 'Nuevo Documento'}
+      open={visible}
+      onCancel={() => {
+        form.resetFields();
+        setFileList([]);
+        onClose();
+      }}
+      footer={null}
       width={700}
-      confirmLoading={creating || updating}
+      destroyOnClose
     >
-      <Form form={form} layout="vertical">
-        <div className="grid grid-cols-2 gap-x-4">
+      <Form form={form} layout="vertical" onFinish={handleSubmit}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           <Form.Item
             name="code"
             label="Código"
@@ -94,6 +125,7 @@ const DocumentForm = ({ visible, onClose, document = null }) => {
             name="version"
             label="Versión"
             rules={[{ required: true, message: 'Ingrese la versión' }]}
+            initialValue="1.0"
           >
             <Input placeholder="Ej: 1.0" />
           </Form.Item>
@@ -107,7 +139,7 @@ const DocumentForm = ({ visible, onClose, document = null }) => {
           <Input placeholder="Título del documento" />
         </Form.Item>
 
-        <div className="grid grid-cols-2 gap-x-4">
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           <Form.Item
             name="type"
             label="Tipo de Documento"
@@ -126,6 +158,7 @@ const DocumentForm = ({ visible, onClose, document = null }) => {
             name="status"
             label="Estado"
             rules={[{ required: true, message: 'Seleccione el estado' }]}
+            initialValue="borrador"
           >
             <Select placeholder="Seleccionar estado">
               <Select.Option value="borrador">Borrador</Select.Option>
@@ -136,13 +169,13 @@ const DocumentForm = ({ visible, onClose, document = null }) => {
           </Form.Item>
         </div>
 
-        <div className="grid grid-cols-2 gap-x-4">
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           <Form.Item name="approvalDate" label="Fecha de Aprobación">
-            <DatePicker className="w-full" format="DD/MM/YYYY" />
+            <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
           </Form.Item>
 
           <Form.Item name="reviewDate" label="Próxima Revisión">
-            <DatePicker className="w-full" format="DD/MM/YYYY" />
+            <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
           </Form.Item>
         </div>
 
@@ -163,8 +196,17 @@ const DocumentForm = ({ visible, onClose, document = null }) => {
             <p className="ant-upload-hint">PDF, Word, Excel — máximo 10MB</p>
           </Dragger>
         </Form.Item>
+
+        <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
+          <Button onClick={onClose} style={{ marginRight: 8 }}>
+            Cancelar
+          </Button>
+          <Button type="primary" htmlType="submit" loading={loading}>
+            Guardar
+          </Button>
+        </Form.Item>
       </Form>
-    </FormModal>
+    </Modal>
   );
 };
 

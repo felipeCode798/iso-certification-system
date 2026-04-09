@@ -1,101 +1,60 @@
 // src/components/modules/nonconformities/NCFollowUp.jsx
 import React, { useState } from 'react';
-import { Card, Table, Tag, Button, Timeline, Progress, Modal, Form, Input, Space, DatePicker, Select } from 'antd';
-import { CheckCircleOutlined, ClockCircleOutlined, MessageOutlined } from '@ant-design/icons';
+import { Card, Table, Tag, Button, Timeline, Progress, Modal, Form, Input, Space, DatePicker, Select, message } from 'antd';
+import { CheckCircleOutlined, ClockCircleOutlined, FileTextOutlined } from '@ant-design/icons';
+import dayjs from 'dayjs';
 
-const NCFollowUp = () => {
+const NCFollowUp = ({ ncs = [], onUpdate }) => {
   const [selectedNC, setSelectedNC] = useState(null);
-  const [commentModal, setCommentModal] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [form] = Form.useForm();
 
   const columns = [
-    {
-      title: 'ID NC',
-      dataIndex: 'id',
-      key: 'id',
-    },
-    {
-      title: 'Descripción',
-      dataIndex: 'description',
-      key: 'description',
-    },
-    {
-      title: 'Acción Correctiva',
-      dataIndex: 'correctiveAction',
-      key: 'correctiveAction',
-    },
-    {
-      title: 'Progreso',
-      key: 'progress',
-      render: (_, record) => <Progress percent={record.progress} size="small" />,
-    },
-    {
-      title: 'Estado',
-      dataIndex: 'status',
-      key: 'status',
-      render: (status) => (
-        <Tag color={status === 'completed' ? 'green' : 'blue'}>
-          {status === 'completed' ? 'Completada' : 'En Progreso'}
-        </Tag>
-      ),
-    },
-    {
-      title: 'Verificación',
-      key: 'verification',
-      render: (_, record) => (
-        <Button size="small" icon={<CheckCircleOutlined />} onClick={() => setSelectedNC(record)}>
-          Verificar
-        </Button>
-      ),
-    },
-  ];
-
-  const followUpData = [
-    {
-      id: 'NC-001',
-      description: 'Falta de documentación en proceso',
-      correctiveAction: 'Actualizar procedimiento',
-      progress: 75,
-      status: 'inProgress',
-      timeline: [
-        { action: 'Análisis completado', date: '2024-01-10', status: 'done' },
-        { action: 'Acción definida', date: '2024-01-15', status: 'done' },
-        { action: 'Implementación', date: '2024-01-20', status: 'inProgress' },
-        { action: 'Verificación', date: '2024-01-25', status: 'pending' },
-      ],
-    },
+    { title: 'ID NC', dataIndex: 'id', key: 'id', width: 80 },
+    { title: 'Descripción', dataIndex: 'description', key: 'description', ellipsis: true },
+    { title: 'Acción Correctiva', dataIndex: 'correctiveAction', key: 'correctiveAction', ellipsis: true },
+    { title: 'Responsable', dataIndex: 'responsible', key: 'responsible' },
+    { title: 'Progreso', key: 'progress', width: 120, render: (_, record) => <Progress percent={record.progress || 0} size="small" /> },
+    { title: 'Estado', dataIndex: 'status', key: 'status', width: 120, render: (status) => <Tag color={status === 'closed' ? 'green' : 'blue'}>{status === 'closed' ? 'Cerrada' : 'En Progreso'}</Tag> },
+    { title: 'Verificación', key: 'verification', width: 100, render: (_, record) => (
+      <Button size="small" icon={<CheckCircleOutlined />} onClick={() => { setSelectedNC(record); setModalVisible(true); }}>
+        Verificar
+      </Button>
+    ) },
   ];
 
   const handleVerify = (values) => {
-    console.log('Verificación:', values);
+    const updatedNCs = ncs.map(nc => 
+      nc.id === selectedNC?.id 
+        ? { ...nc, status: 'closed', progress: 100, closure: values, closureDate: dayjs().format('YYYY-MM-DD') }
+        : nc
+    );
+    onUpdate(updatedNCs);
+    message.success('No conformidad cerrada exitosamente');
+    setModalVisible(false);
     setSelectedNC(null);
+    form.resetFields();
   };
 
   return (
     <Card title="Seguimiento de No Conformidades">
-      <Table columns={columns} dataSource={followUpData} rowKey="id" />
+      <Table columns={columns} dataSource={ncs.filter(nc => nc.status !== 'closed')} rowKey="id" />
 
       <Modal
         title={`Verificación de Eficacia - ${selectedNC?.id}`}
-        open={!!selectedNC}
-        onCancel={() => setSelectedNC(null)}
+        open={modalVisible}
+        onCancel={() => { setModalVisible(false); setSelectedNC(null); form.resetFields(); }}
         width={700}
         footer={null}
       >
-        <Timeline className="mb-6">
-          {selectedNC?.timeline.map((item, idx) => (
-            <Timeline.Item key={idx} color={item.status === 'done' ? 'green' : item.status === 'inProgress' ? 'blue' : 'gray'}>
-              <div className="font-semibold">{item.action}</div>
-              <div className="text-sm text-gray-500">{item.date}</div>
-            </Timeline.Item>
-          ))}
-        </Timeline>
+        <Card size="small" className="mb-4">
+          <p><strong>No Conformidad:</strong> {selectedNC?.description}</p>
+          <p><strong>Acción Correctiva:</strong> {selectedNC?.correctiveAction || 'No definida'}</p>
+          <p><strong>Responsable:</strong> {selectedNC?.responsible || 'No asignado'}</p>
+        </Card>
 
-        <Form layout="vertical" onFinish={handleVerify}>
-          <Form.Item
-            name="effectiveness"
-            label="¿La acción fue efectiva?"
-            rules={[{ required: true }]}
-          >
+        <Form form={form} layout="vertical" onFinish={handleVerify}>
+          <Form.Item name="effectiveness" label="¿La acción fue efectiva?" rules={[{ required: true }]}>
             <Select>
               <Select.Option value="yes">Sí, la no conformidad no se repitió</Select.Option>
               <Select.Option value="partial">Parcialmente, requiere mejora adicional</Select.Option>
@@ -103,35 +62,28 @@ const NCFollowUp = () => {
             </Select>
           </Form.Item>
 
-          <Form.Item
-            name="evidence"
-            label="Evidencias de verificación"
-          >
-            <Input placeholder="Adjuntar evidencias o comentarios" />
+          <Form.Item name="evidence" label="Evidencias de verificación">
+            <Input.TextArea rows={3} placeholder="Describa las evidencias que demuestran la eficacia de la acción" />
           </Form.Item>
 
-          <Form.Item
-            name="verifier"
-            label="Verificado por"
-            rules={[{ required: true }]}
-          >
+          <Form.Item name="verifier" label="Verificado por" rules={[{ required: true }]}>
             <Input placeholder="Nombre del verificador" />
           </Form.Item>
 
-          <Form.Item
-            name="verificationDate"
-            label="Fecha de Verificación"
-            rules={[{ required: true }]}
-          >
-            <DatePicker className="w-full" />
+          <Form.Item name="verificationDate" label="Fecha de Verificación" rules={[{ required: true }]} initialValue={dayjs()}>
+            <DatePicker className="w-full" format="DD/MM/YYYY" />
+          </Form.Item>
+
+          <Form.Item name="comments" label="Comentarios Adicionales">
+            <Input.TextArea rows={2} placeholder="Observaciones adicionales" />
           </Form.Item>
 
           <Form.Item>
-            <Space>
-              <Button type="primary" htmlType="submit">
+            <Space className="w-full justify-end">
+              <Button onClick={() => { setModalVisible(false); setSelectedNC(null); form.resetFields(); }}>Cancelar</Button>
+              <Button type="primary" htmlType="submit" icon={<CheckCircleOutlined />}>
                 Cerrar No Conformidad
               </Button>
-              <Button onClick={() => setSelectedNC(null)}>Cancelar</Button>
             </Space>
           </Form.Item>
         </Form>

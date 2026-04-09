@@ -1,14 +1,9 @@
 // src/components/modules/nonconformities/NCList.jsx
 import React, { useState } from 'react';
-import { Table, Tag, Button, Space, Badge, Tooltip, Progress, Modal } from 'antd';
-import { EyeOutlined, EditOutlined, DeleteOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
-import DataTable from '../../common/Tables/DataTable';
-import NCAnalysis from './NCAnalysis';
+import { Table, Tag, Button, Space, Badge, Tooltip, Progress, Modal, message } from 'antd';
+import { EyeOutlined, EditOutlined, DeleteOutlined, CheckCircleOutlined, CloseCircleOutlined, AuditOutlined } from '@ant-design/icons';
 
-const NCList = ({ ncs, loading, onEdit, onDelete }) => {
-  const [selectedNC, setSelectedNC] = useState(null);
-  const [analysisVisible, setAnalysisVisible] = useState(false);
-
+const NCList = ({ ncs = [], loading = false, onEdit, onDelete, onView }) => {
   const getSeverityConfig = (severity) => {
     const configs = {
       critical: { color: 'red', text: 'Crítica' },
@@ -20,74 +15,81 @@ const NCList = ({ ncs, loading, onEdit, onDelete }) => {
 
   const getStatusConfig = (status) => {
     const configs = {
-      open: { color: 'error', text: 'Abierta' },
-      inAnalysis: { color: 'warning', text: 'En Análisis' },
-      action: { color: 'processing', text: 'Acción en Curso' },
-      closed: { color: 'success', text: 'Cerrada' },
+      open: { color: 'error', text: 'Abierta', icon: <CloseCircleOutlined /> },
+      inAnalysis: { color: 'warning', text: 'En Análisis', icon: <AuditOutlined /> },
+      action: { color: 'processing', text: 'Acción en Curso', icon: <CheckCircleOutlined /> },
+      closed: { color: 'success', text: 'Cerrada', icon: <CheckCircleOutlined /> },
     };
     return configs[status] || configs.open;
   };
 
   const columns = [
-    {
-      title: 'ID',
-      dataIndex: 'id',
-      key: 'id',
-      width: 80,
-    },
-    {
-      title: 'Descripción',
-      dataIndex: 'description',
-      key: 'description',
-      ellipsis: true,
-    },
-    {
-      title: 'Severidad',
-      dataIndex: 'severity',
-      key: 'severity',
+    { title: 'ID', dataIndex: 'id', key: 'id', width: 80 },
+    { title: 'Descripción', dataIndex: 'description', key: 'description', ellipsis: true },
+    { 
+      title: 'Severidad', 
+      dataIndex: 'severity', 
+      key: 'severity', 
+      width: 100,
       render: (severity) => {
         const config = getSeverityConfig(severity);
         return <Tag color={config.color}>{config.text}</Tag>;
       },
+      filters: [
+        { text: 'Crítica', value: 'critical' },
+        { text: 'Mayor', value: 'major' },
+        { text: 'Menor', value: 'minor' },
+      ],
+      onFilter: (value, record) => record.severity === value,
     },
-    {
-      title: 'Origen',
-      dataIndex: 'source',
-      key: 'source',
+    { 
+      title: 'Origen', 
+      dataIndex: 'source', 
+      key: 'source', 
+      width: 120,
       render: (source) => <Tag>{source}</Tag>,
+      filters: [
+        { text: 'Auditoría', value: 'audit' },
+        { text: 'Interna', value: 'internal' },
+        { text: 'Cliente', value: 'client' },
+        { text: 'Proceso', value: 'process' },
+      ],
+      onFilter: (value, record) => record.source === value,
     },
-    {
-      title: 'Estado',
-      dataIndex: 'status',
-      key: 'status',
+    { 
+      title: 'Estado', 
+      dataIndex: 'status', 
+      key: 'status', 
+      width: 130,
       render: (status) => {
         const config = getStatusConfig(status);
         return <Badge status={config.color} text={config.text} />;
       },
     },
-    {
-      title: 'Progreso',
-      key: 'progress',
-      render: (_, record) => <Progress percent={record.progress || 0} size="small" />,
+    { 
+      title: 'Progreso', 
+      key: 'progress', 
+      width: 120,
+      render: (_, record) => <Progress percent={record.progress || 0} size="small" /> 
     },
-    {
-      title: 'Fecha',
-      dataIndex: 'detectionDate',
-      key: 'detectionDate',
+    { 
+      title: 'Fecha', 
+      dataIndex: 'detectionDate', 
+      key: 'detectionDate', 
+      width: 120,
+      sorter: (a, b) => new Date(a.detectionDate) - new Date(b.detectionDate),
     },
-    {
-      title: 'Acciones',
-      key: 'actions',
+    { 
+      title: 'Acciones', 
+      key: 'actions', 
+      width: 180,
       render: (_, record) => (
         <Space>
           <Tooltip title="Ver detalles">
-            <Button icon={<EyeOutlined />} size="small" />
+            <Button icon={<EyeOutlined />} size="small" onClick={() => onView(record)} />
           </Tooltip>
           <Tooltip title="Análisis Causa Raíz">
-            <Button icon={<CheckCircleOutlined />} size="small" onClick={() => {
-              setSelectedNC(record);
-              setAnalysisVisible(true);
-            }} />
+            <Button icon={<AuditOutlined />} size="small" onClick={() => onView(record)} />
           </Tooltip>
           <Tooltip title="Editar">
             <Button icon={<EditOutlined />} size="small" onClick={() => onEdit(record)} />
@@ -101,21 +103,15 @@ const NCList = ({ ncs, loading, onEdit, onDelete }) => {
   ];
 
   return (
-    <>
-      <DataTable
-        title="No Conformidades"
-        columns={columns}
-        dataSource={ncs}
-        loading={loading}
-        rowKey="id"
+    <div className="nc-list">
+      <Table 
+        columns={columns} 
+        dataSource={ncs} 
+        loading={loading} 
+        rowKey="id" 
+        pagination={{ pageSize: 10, showTotal: (total) => `Total ${total} no conformidades` }}
       />
-      
-      <NCAnalysis
-        visible={analysisVisible}
-        onClose={() => setAnalysisVisible(false)}
-        nc={selectedNC}
-      />
-    </>
+    </div>
   );
 };
 

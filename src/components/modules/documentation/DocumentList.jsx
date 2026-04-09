@@ -1,3 +1,4 @@
+// src/components/modules/documentation/DocumentList.jsx
 import React, { useState } from 'react';
 import { Table, Button, Space, Tag, Input, Modal, message, Tooltip } from 'antd';
 import {
@@ -29,8 +30,11 @@ const DocumentList = () => {
   const [isViewerVisible, setIsViewerVisible] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState(null);
 
-  const { data: documents = [], isLoading, refetch } = useGetDocumentsQuery();
-  const { mutateAsync: deleteDocument } = useDeleteDocumentMutation(); // ✅ objeto
+  const { data: response, isLoading, refetch } = useGetDocumentsQuery();
+  const { mutateAsync: deleteDocument } = useDeleteDocumentMutation();
+
+  // Extraer el array de documentos de la respuesta
+  const documents = response?.data || response || [];
 
   const handleDelete = (record) => {
     Modal.confirm({
@@ -42,6 +46,7 @@ const DocumentList = () => {
       onOk: async () => {
         await deleteDocument(record.id);
         message.success('Documento eliminado');
+        refetch();
       },
     });
   };
@@ -52,13 +57,13 @@ const DocumentList = () => {
       dataIndex: 'code',
       key: 'code',
       width: 110,
-      sorter: (a, b) => a.code.localeCompare(b.code),
+      sorter: (a, b) => a.code?.localeCompare(b.code),
     },
     {
       title: 'Título',
       dataIndex: 'title',
       key: 'title',
-      sorter: (a, b) => a.title.localeCompare(b.title),
+      sorter: (a, b) => a.title?.localeCompare(b.title),
     },
     {
       title: 'Tipo',
@@ -147,7 +152,10 @@ const DocumentList = () => {
     },
   ];
 
-  const filteredDocuments = (documents || []).filter(doc =>
+  // Asegurar que documents es un array antes de filtrar
+  const documentsArray = Array.isArray(documents) ? documents : [];
+  
+  const filteredDocuments = documentsArray.filter(doc =>
     doc.title?.toLowerCase().includes(searchText.toLowerCase()) ||
     doc.code?.toLowerCase().includes(searchText.toLowerCase()) ||
     doc.responsible?.toLowerCase().includes(searchText.toLowerCase())
@@ -196,6 +204,7 @@ const DocumentList = () => {
         visible={isViewerVisible}
         onClose={() => { setIsViewerVisible(false); setSelectedDocument(null); }}
         document={selectedDocument}
+        onRefresh={refetch}
       />
     </div>
   );

@@ -4,10 +4,15 @@ import apiClient from '../api/apiClient';
 export const authService = {
   login: async (credentials) => {
     const response = await apiClient.post('/auth/login', credentials);
-    if (response.data.token) {
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
+    if (response.data.data.token) {
+      localStorage.setItem('token', response.data.data.token);
+      localStorage.setItem('user', JSON.stringify(response.data.data.user));
     }
+    return response.data;
+  },
+  
+  register: async (userData) => {
+    const response = await apiClient.post('/auth/register', userData);
     return response.data;
   },
   
@@ -18,26 +23,19 @@ export const authService = {
   
   getCurrentUser: () => {
     const userStr = localStorage.getItem('user');
-    if (userStr) {
-      return JSON.parse(userStr);
-    }
-    return null;
+    return userStr ? JSON.parse(userStr) : null;
   },
   
-  getToken: () => {
-    return localStorage.getItem('token');
-  },
+  getToken: () => localStorage.getItem('token'),
   
-  isAuthenticated: () => {
-    return !!localStorage.getItem('token');
-  },
+  isAuthenticated: () => !!localStorage.getItem('token'),
   
   changePassword: async (oldPassword, newPassword) => {
     return await apiClient.post('/auth/change-password', { oldPassword, newPassword });
   },
   
-  resetPassword: async (email) => {
-    return await apiClient.post('/auth/reset-password', { email });
+  getProfile: async () => {
+    return await apiClient.get('/auth/profile');
   },
 };
 

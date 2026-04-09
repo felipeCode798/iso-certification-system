@@ -19,11 +19,14 @@ export const documentationService = {
   search: (query) => apiClient.get('/documents/search', { params: { q: query } }),
 };
 
-// Hooks para React Query
 export const useGetDocumentsQuery = () => {
   return useQuery({
     queryKey: ['documents'],
-    queryFn: () => documentationService.getAll(),
+    queryFn: async () => {
+      const response = await documentationService.getAll();
+      // La respuesta puede tener estructura { data: [...] } o directamente el array
+      return response.data?.data || response.data || [];
+    },
   });
 };
 

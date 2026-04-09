@@ -1,7 +1,7 @@
 // src/services/api/apiClient.js
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -10,7 +10,6 @@ const apiClient = axios.create({
   },
 });
 
-// Interceptor para agregar token de autenticación
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -19,17 +18,22 @@ apiClient.interceptors.request.use(
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-// Interceptor para manejar errores
+// Interceptor para normalizar la respuesta
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Si la respuesta tiene estructura { data: { data: [...] } }
+    if (response.data?.data) {
+      return { ...response, data: response.data.data };
+    }
+    return response;
+  },
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
+      localStorage.removeItem('user');
       window.location.href = '/login';
     }
     return Promise.reject(error);

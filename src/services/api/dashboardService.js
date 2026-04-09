@@ -1,63 +1,30 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { mockDocuments } from '../../utils/mockData';
+// src/services/api/dashboardService.js
+import apiClient from './apiClient';
+import { useQuery } from '@tanstack/react-query';
 
-// Simulación de storage en memoria
-let documentsStore = [...mockDocuments];
-let nextId = mockDocuments.length + 1;
-
-const documentationService = {
-  getAll: async () => documentsStore,
-
-  getById: async (id) => documentsStore.find(d => d.id === id),
-
-  create: async (data) => {
-    const newDoc = { ...data, id: nextId++ };
-    documentsStore = [...documentsStore, newDoc];
-    return newDoc;
-  },
-
-  update: async (id, data) => {
-    documentsStore = documentsStore.map(d => d.id === id ? { ...d, ...data } : d);
-    return documentsStore.find(d => d.id === id);
-  },
-
-  delete: async (id) => {
-    documentsStore = documentsStore.filter(d => d.id !== id);
-    return id;
-  },
+export const dashboardService = {
+  getDashboard: () => apiClient.get('/dashboard'),
+  getStatistics: () => apiClient.get('/dashboard/statistics'),
 };
 
-// ✅ Hooks corregidos — retornan objeto, no array
-export const useGetDocumentsQuery = () => {
+export const useGetDashboardQuery = () => {
   return useQuery({
-    queryKey: ['documents'],
-    queryFn: documentationService.getAll,
-    initialData: mockDocuments,
+    queryKey: ['dashboard'],
+    queryFn: async () => {
+      const response = await dashboardService.getDashboard();
+      return response.data?.data || response.data;
+    },
   });
 };
 
-export const useCreateDocumentMutation = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (data) => documentationService.create(data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['documents'] }),
+export const useGetStatisticsQuery = () => {
+  return useQuery({
+    queryKey: ['dashboard-statistics'],
+    queryFn: async () => {
+      const response = await dashboardService.getStatistics();
+      return response.data?.data || response.data;
+    },
   });
 };
 
-export const useUpdateDocumentMutation = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, data }) => documentationService.update(id, data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['documents'] }),
-  });
-};
-
-export const useDeleteDocumentMutation = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id) => documentationService.delete(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['documents'] }),
-  });
-};
-
-export default documentationService;
+export default dashboardService;

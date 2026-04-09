@@ -1,6 +1,6 @@
 // src/components/modules/training/CompetencyMatrix.jsx
 import React from 'react';
-import { Card, Table, Tag, Progress, Badge, Tooltip, Row, Col, Statistic } from 'antd';
+import { Card, Table, Tag, Progress, Badge, Tooltip, Row, Col, Statistic, Button } from 'antd';
 import { CheckCircleOutlined, CloseCircleOutlined, TrophyOutlined, TeamOutlined, WarningOutlined } from '@ant-design/icons';
 
 const CompetencyMatrix = () => {

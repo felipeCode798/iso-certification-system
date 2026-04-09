@@ -1,5 +1,6 @@
 // src/hooks/useAuth.js
 import { useState, useEffect } from 'react';
+import { authService } from '../services/auth/authService';
 
 export const useAuth = () => {
   const [user, setUser] = useState(null);
@@ -8,11 +9,11 @@ export const useAuth = () => {
 
   useEffect(() => {
     const checkAuth = () => {
-      const token = localStorage.getItem('token');
-      const userData = localStorage.getItem('user');
+      const currentUser = authService.getCurrentUser();
+      const token = authService.getToken();
       
-      if (token && userData) {
-        setUser(JSON.parse(userData));
+      if (token && currentUser) {
+        setUser(currentUser);
         setIsAuthenticated(true);
       } else {
         setUser(null);
@@ -26,28 +27,26 @@ export const useAuth = () => {
 
   const login = async (credentials) => {
     try {
-      // Simular llamada API
-      if (credentials.email === 'admin@iso.com' && credentials.password === 'admin123') {
-        const userData = { 
-          name: 'Administrador', 
-          email: credentials.email, 
-          role: 'admin' 
-        };
-        localStorage.setItem('token', 'fake-token');
-        localStorage.setItem('user', JSON.stringify(userData));
-        setUser(userData);
-        setIsAuthenticated(true);
-        return { success: true };
-      }
-      return { success: false, error: 'Credenciales incorrectas' };
+      const response = await authService.login(credentials);
+      setUser(response.data.user);
+      setIsAuthenticated(true);
+      return { success: true };
     } catch (error) {
-      return { success: false, error: error.message };
+      return { success: false, error: error.response?.data?.message || 'Error al iniciar sesión' };
+    }
+  };
+
+  const register = async (userData) => {
+    try {
+      await authService.register(userData);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.response?.data?.message || 'Error al registrar' };
     }
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    authService.logout();
     setUser(null);
     setIsAuthenticated(false);
   };
@@ -57,6 +56,7 @@ export const useAuth = () => {
     loading,
     isAuthenticated,
     login,
+    register,
     logout,
   };
 };
