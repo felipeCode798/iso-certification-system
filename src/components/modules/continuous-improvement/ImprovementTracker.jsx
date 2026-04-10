@@ -1,67 +1,69 @@
 // src/components/modules/continuous-improvement/ImprovementTracker.jsx
 import React from 'react';
-import { Card, Row, Col, Statistic, Progress, List, Tag, Timeline, Button } from 'antd';
-import { RiseOutlined, FallOutlined, CheckCircleOutlined, ClockCircleOutlined } from '@ant-design/icons';
+import { Card, Row, Col, Statistic, Progress, List, Tag, Timeline, Button, Empty } from 'antd';
+import { RiseOutlined, CheckCircleOutlined, ClockCircleOutlined, FileTextOutlined } from '@ant-design/icons';
+import dayjs from 'dayjs';
 
-const ImprovementTracker = ({ improvements, metrics }) => {
-  const calculateTrend = () => {
-    // Calcular tendencia de mejora
-    return {
-      totalImprovements: improvements?.length || 0,
-      implemented: improvements?.filter(i => i.status === 'implemented').length || 0,
-      effectiveness: 85,
-    };
+const ImprovementTracker = ({ improvements = [], metrics }) => {
+  const getImpactColor = (impact) => {
+    const colors = { high: 'red', medium: 'orange', low: 'green' };
+    return colors[impact] || 'default';
   };
 
-  const trend = calculateTrend();
+  const recentImprovements = improvements.slice(0, 5).map(imp => ({
+    id: imp.id,
+    title: imp.description,
+    date: imp.completionDate || imp.createdAt,
+    impact: imp.impact || 'medium',
+    status: imp.status,
+  }));
 
-  const recentImprovements = [
-    { title: 'Optimización de procesos', date: '2024-01-15', impact: 'Alto', status: 'implemented' },
-    { title: 'Automatización de reportes', date: '2024-01-10', impact: 'Medio', status: 'inProgress' },
-    { title: 'Mejora en tiempos de respuesta', date: '2024-01-05', impact: 'Alto', status: 'planned' },
-  ];
+  const totalImplemented = improvements.filter(i => i.status === 'completed').length;
+  const implementationRate = improvements.length > 0 
+    ? (totalImplemented / improvements.length) * 100 
+    : 0;
 
   return (
     <div className="space-y-6">
       <Row gutter={16}>
         <Col span={6}>
-          <Card>
+          <Card size="small">
             <Statistic
               title="Total Mejoras"
-              value={trend.totalImprovements}
-              prefix={<RiseOutlined />}
-              valueStyle={{ color: '#3f8600' }}
+              value={improvements.length}
+              prefix={<FileTextOutlined />}
+              valueStyle={{ color: '#1890ff' }}
             />
           </Card>
         </Col>
         <Col span={6}>
-          <Card>
+          <Card size="small">
             <Statistic
               title="Implementadas"
-              value={trend.implemented}
+              value={totalImplemented}
               prefix={<CheckCircleOutlined />}
               valueStyle={{ color: '#52c41a' }}
             />
           </Card>
         </Col>
         <Col span={6}>
-          <Card>
+          <Card size="small">
             <Statistic
               title="Tasa de Implementación"
-              value={trend.effectiveness}
+              value={implementationRate.toFixed(1)}
               suffix="%"
               precision={1}
             />
-            <Progress percent={trend.effectiveness} size="small" />
+            <Progress percent={implementationRate} size="small" strokeColor="#52c41a" />
           </Card>
         </Col>
         <Col span={6}>
-          <Card>
+          <Card size="small">
             <Statistic
-              title="Ahorro Estimado"
-              value={125000}
-              prefix="$"
-              precision={0}
+              title="En Progreso"
+              value={improvements.filter(i => i.status === 'inProgress').length}
+              prefix={<ClockCircleOutlined />}
+              valueStyle={{ color: '#faad14' }}
             />
           </Card>
         </Col>
@@ -70,26 +72,30 @@ const ImprovementTracker = ({ improvements, metrics }) => {
       <Row gutter={16}>
         <Col span={12}>
           <Card title="Mejoras Recientes">
-            <List
-              dataSource={recentImprovements}
-              renderItem={item => (
-                <List.Item
-                  actions={[
-                    <Tag color={item.impact === 'Alto' ? 'red' : 'orange'}>
-                      Impacto {item.impact}
-                    </Tag>,
-                  ]}
-                >
-                  <List.Item.Meta
-                    title={item.title}
-                    description={`Fecha: ${item.date}`}
-                  />
-                  <Tag color={item.status === 'implemented' ? 'green' : item.status === 'inProgress' ? 'blue' : 'default'}>
-                    {item.status === 'implemented' ? 'Implementada' : item.status === 'inProgress' ? 'En Progreso' : 'Planificada'}
-                  </Tag>
-                </List.Item>
-              )}
-            />
+            {recentImprovements.length === 0 ? (
+              <Empty description="No hay mejoras registradas" />
+            ) : (
+              <List
+                dataSource={recentImprovements}
+                renderItem={item => (
+                  <List.Item
+                    actions={[
+                      <Tag color={getImpactColor(item.impact)}>
+                        Impacto {item.impact === 'high' ? 'Alto' : item.impact === 'medium' ? 'Medio' : 'Bajo'}
+                      </Tag>,
+                    ]}
+                  >
+                    <List.Item.Meta
+                      title={item.title}
+                      description={`Fecha: ${item.date ? dayjs(item.date).format('DD/MM/YYYY') : '—'}`}
+                    />
+                    <Tag color={item.status === 'completed' ? 'green' : item.status === 'inProgress' ? 'blue' : 'orange'}>
+                      {item.status === 'completed' ? 'Implementada' : item.status === 'inProgress' ? 'En Progreso' : 'Planificada'}
+                    </Tag>
+                  </List.Item>
+                )}
+              />
+            )}
           </Card>
         </Col>
 

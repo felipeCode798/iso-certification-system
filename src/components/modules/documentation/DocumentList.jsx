@@ -3,25 +3,40 @@ import React, { useState } from 'react';
 import { Table, Button, Space, Tag, Input, Modal, message, Tooltip } from 'antd';
 import {
   PlusOutlined, EditOutlined, DeleteOutlined,
-  EyeOutlined, SearchOutlined, ReloadOutlined
+  EyeOutlined, SearchOutlined, ReloadOutlined,
 } from '@ant-design/icons';
 import DocumentForm from './DocumentForm';
 import DocumentViewer from './DocumentViewer';
 import { useGetDocumentsQuery, useDeleteDocumentMutation } from '../../../services/api/documentationService';
 
-const statusColors = {
+const STATUS_COLORS = {
   aprobado: 'success',
   revision: 'warning',
   borrador: 'default',
   obsoleto: 'error',
 };
 
-const typeColors = {
+const TYPE_COLORS = {
   manual: 'blue',
   procedure: 'geekblue',
   instruction: 'cyan',
   format: 'purple',
   policy: 'magenta',
+};
+
+const TYPE_LABELS = {
+  manual: 'Manual',
+  procedure: 'Procedimiento',
+  instruction: 'Instructivo',
+  format: 'Formato',
+  policy: 'Política',
+};
+
+const STATUS_LABELS = {
+  aprobado: 'Aprobado',
+  revision: 'En Revisión',
+  borrador: 'Borrador',
+  obsoleto: 'Obsoleto',
 };
 
 const DocumentList = () => {
@@ -33,22 +48,38 @@ const DocumentList = () => {
   const { data: response, isLoading, refetch } = useGetDocumentsQuery();
   const { mutateAsync: deleteDocument } = useDeleteDocumentMutation();
 
-  // Extraer el array de documentos de la respuesta
-  const documents = response?.data || response || [];
+  const documents = React.useMemo(() => {
+    const raw = response?.data ?? response;
+    return Array.isArray(raw) ? raw : [];
+  }, [response]);
 
   const handleDelete = (record) => {
     Modal.confirm({
       title: '¿Eliminar documento?',
-      content: `Se eliminará "${record.title}" permanentemente.`,
+      content: `Se eliminará "${record.title}" permanentemente. Esta acción no se puede deshacer.`,
       okText: 'Eliminar',
       okButtonProps: { danger: true },
       cancelText: 'Cancelar',
       onOk: async () => {
-        await deleteDocument(record.id);
-        message.success('Documento eliminado');
-        refetch();
+        try {
+          await deleteDocument(record.id);
+          message.success('Documento eliminado');
+          refetch();
+        } catch {
+          message.error('Error al eliminar el documento');
+        }
       },
     });
+  };
+
+  const openEdit = (record) => {
+    setSelectedDocument(record);
+    setIsFormVisible(true);
+  };
+
+  const openView = (record) => {
+    setSelectedDocument(record);
+    setIsViewerVisible(true);
   };
 
   const columns = [
@@ -64,44 +95,39 @@ const DocumentList = () => {
       dataIndex: 'title',
       key: 'title',
       sorter: (a, b) => a.title?.localeCompare(b.title),
+      ellipsis: true,
     },
     {
       title: 'Tipo',
       dataIndex: 'type',
       key: 'type',
-      width: 120,
+      width: 130,
       render: (type) => (
-        <Tag color={typeColors[type] || 'default'}>{type?.toUpperCase()}</Tag>
+        <Tag color={TYPE_COLORS[type] || 'default'}>
+          {TYPE_LABELS[type] || type?.toUpperCase()}
+        </Tag>
       ),
-      filters: [
-        { text: 'Manual', value: 'manual' },
-        { text: 'Procedimiento', value: 'procedure' },
-        { text: 'Instructivo', value: 'instruction' },
-        { text: 'Formato', value: 'format' },
-        { text: 'Política', value: 'policy' },
-      ],
+      filters: Object.entries(TYPE_LABELS).map(([value, text]) => ({ text, value })),
       onFilter: (value, record) => record.type === value,
     },
     {
       title: 'Versión',
       dataIndex: 'version',
       key: 'version',
-      width: 90,
-      render: (version) => <Tag color="blue">v{version}</Tag>,
+      width: 85,
+      render: (v) => <Tag color="blue">v{v}</Tag>,
     },
     {
       title: 'Estado',
       dataIndex: 'status',
       key: 'status',
-      width: 120,
+      width: 130,
       render: (status) => (
-        <Tag color={statusColors[status] || 'default'}>{status?.toUpperCase()}</Tag>
+        <Tag color={STATUS_COLORS[status] || 'default'}>
+          {STATUS_LABELS[status] || status?.toUpperCase()}
+        </Tag>
       ),
-      filters: [
-        { text: 'Aprobado', value: 'aprobado' },
-        { text: 'En Revisión', value: 'revision' },
-        { text: 'Borrador', value: 'borrador' },
-      ],
+      filters: Object.entries(STATUS_LABELS).map(([value, text]) => ({ text, value })),
       onFilter: (value, record) => record.status === value,
     },
     {
@@ -109,13 +135,16 @@ const DocumentList = () => {
       dataIndex: 'approvalDate',
       key: 'approvalDate',
       width: 130,
-      sorter: (a, b) => new Date(a.approvalDate) - new Date(b.approvalDate),
+      sorter: (a, b) => new Date(a.approvalDate || 0) - new Date(b.approvalDate || 0),
+      render: (date) => date || '—',
     },
     {
       title: 'Responsable',
       dataIndex: 'responsible',
       key: 'responsible',
-      width: 120,
+      width: 130,
+      ellipsis: true,
+      render: (v) => v || '—',
     },
     {
       title: 'Acciones',
@@ -123,12 +152,8 @@ const DocumentList = () => {
       width: 120,
       render: (_, record) => (
         <Space size="small">
-          <Tooltip title="Ver">
-            <Button
-              icon={<EyeOutlined />}
-              size="small"
-              onClick={() => { setSelectedDocument(record); setIsViewerVisible(true); }}
-            />
+          <Tooltip title="Ver detalle">
+            <Button icon={<EyeOutlined />} size="small" onClick={() => openView(record)} />
           </Tooltip>
           <Tooltip title="Editar">
             <Button
@@ -136,29 +161,22 @@ const DocumentList = () => {
               size="small"
               type="primary"
               ghost
-              onClick={() => { setSelectedDocument(record); setIsFormVisible(true); }}
+              onClick={() => openEdit(record)}
             />
           </Tooltip>
           <Tooltip title="Eliminar">
-            <Button
-              icon={<DeleteOutlined />}
-              size="small"
-              danger
-              onClick={() => handleDelete(record)}
-            />
+            <Button icon={<DeleteOutlined />} size="small" danger onClick={() => handleDelete(record)} />
           </Tooltip>
         </Space>
       ),
     },
   ];
 
-  // Asegurar que documents es un array antes de filtrar
-  const documentsArray = Array.isArray(documents) ? documents : [];
-  
-  const filteredDocuments = documentsArray.filter(doc =>
-    doc.title?.toLowerCase().includes(searchText.toLowerCase()) ||
-    doc.code?.toLowerCase().includes(searchText.toLowerCase()) ||
-    doc.responsible?.toLowerCase().includes(searchText.toLowerCase())
+  const filteredDocuments = documents.filter(
+    (doc) =>
+      doc.title?.toLowerCase().includes(searchText.toLowerCase()) ||
+      doc.code?.toLowerCase().includes(searchText.toLowerCase()) ||
+      doc.responsible?.toLowerCase().includes(searchText.toLowerCase()),
   );
 
   return (
@@ -168,7 +186,7 @@ const DocumentList = () => {
           <Input
             placeholder="Buscar por código, título o responsable..."
             prefix={<SearchOutlined />}
-            className="w-72"
+            style={{ width: 300 }}
             allowClear
             onChange={(e) => setSearchText(e.target.value)}
           />
@@ -190,13 +208,17 @@ const DocumentList = () => {
         dataSource={filteredDocuments}
         rowKey="id"
         loading={isLoading}
-        pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (total) => `Total: ${total} documentos` }}
+        pagination={{
+          pageSize: 10,
+          showSizeChanger: true,
+          showTotal: (total) => `Total: ${total} documentos`,
+        }}
         size="middle"
       />
 
       <DocumentForm
         visible={isFormVisible}
-        onClose={() => { setIsFormVisible(false); setSelectedDocument(null); }}
+        onClose={() => { setIsFormVisible(false); refetch(); }}
         document={selectedDocument}
       />
 

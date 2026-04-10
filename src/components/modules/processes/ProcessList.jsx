@@ -1,3 +1,4 @@
+// src/components/modules/processes/ProcessList.jsx
 import React, { useState } from 'react';
 import { Table, Tag, Button, Space, Progress, Tooltip, Input, Modal, message } from 'antd';
 import { EditOutlined, DeleteOutlined, LineChartOutlined, SearchOutlined, PlusOutlined } from '@ant-design/icons';
@@ -29,10 +30,18 @@ const ProcessList = ({ processes = [], loading, onEdit, onDelete, onViewMetrics,
   };
 
   const columns = [
-    { title: 'Código', dataIndex: 'code', key: 'code', width: 100, sorter: (a, b) => a.code.localeCompare(b.code) },
+    { 
+      title: 'Código', 
+      dataIndex: 'code', 
+      key: 'code', 
+      width: 100, 
+      sorter: (a, b) => a.code?.localeCompare(b.code) 
+    },
     {
-      title: 'Proceso', dataIndex: 'name', key: 'name',
-      sorter: (a, b) => a.name.localeCompare(b.name),
+      title: 'Proceso', 
+      dataIndex: 'name', 
+      key: 'name',
+      sorter: (a, b) => a.name?.localeCompare(b.name),
       render: (name, record) => (
         <div>
           <div className="font-medium">{name}</div>
@@ -41,18 +50,24 @@ const ProcessList = ({ processes = [], loading, onEdit, onDelete, onViewMetrics,
       ),
     },
     {
-      title: 'Tipo', dataIndex: 'type', key: 'type', width: 120,
+      title: 'Tipo', 
+      dataIndex: 'type', 
+      key: 'type', 
+      width: 120,
       render: (type) => <Tag color={typeConfig[type]?.color}>{typeConfig[type]?.label || type}</Tag>,
       filters: Object.entries(typeConfig).map(([v, c]) => ({ text: c.label, value: v })),
       onFilter: (value, record) => record.type === value,
     },
     {
-      title: 'Eficacia', dataIndex: 'effectiveness', key: 'effectiveness', width: 160,
-      sorter: (a, b) => a.effectiveness - b.effectiveness,
+      title: 'Eficacia', 
+      dataIndex: 'effectiveness', 
+      key: 'effectiveness', 
+      width: 160,
+      sorter: (a, b) => (a.effectiveness || 0) - (b.effectiveness || 0),
       render: (val) => (
         <div>
           <Progress
-            percent={val}
+            percent={val || 0}
             size="small"
             strokeColor={val >= 90 ? '#52c41a' : val >= 75 ? '#faad14' : '#ff4d4f'}
             format={p => `${p}%`}
@@ -61,19 +76,36 @@ const ProcessList = ({ processes = [], loading, onEdit, onDelete, onViewMetrics,
       ),
     },
     {
-      title: 'Estado', dataIndex: 'status', key: 'status', width: 120,
+      title: 'Estado', 
+      dataIndex: 'status', 
+      key: 'status', 
+      width: 120,
       render: (status) => (
         <Tag color={status === 'active' ? 'success' : status === 'review' ? 'warning' : 'default'}>
           {status === 'active' ? 'Activo' : status === 'review' ? 'En Revisión' : 'Inactivo'}
         </Tag>
       ),
+      filters: [
+        { text: 'Activo', value: 'active' },
+        { text: 'En Revisión', value: 'review' },
+        { text: 'Inactivo', value: 'inactive' },
+      ],
+      onFilter: (value, record) => record.status === value,
     },
     {
-      title: 'Acciones', key: 'actions', width: 120,
+      title: 'Acciones', 
+      key: 'actions', 
+      width: 120,
       render: (_, record) => (
         <Space size="small">
           <Tooltip title="Ver métricas">
-            <Button icon={<LineChartOutlined />} size="small" type="primary" ghost onClick={() => onViewMetrics(record)} />
+            <Button 
+              icon={<LineChartOutlined />} 
+              size="small" 
+              type="primary" 
+              ghost 
+              onClick={() => onViewMetrics(record)} 
+            />
           </Tooltip>
           <Tooltip title="Editar">
             <Button icon={<EditOutlined />} size="small" onClick={() => onEdit(record)} />

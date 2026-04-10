@@ -1,53 +1,80 @@
+// src/services/api/incidentsService.js
+import apiClient from './apiClient';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { mockIncidents } from '../../utils/mockData';
-import dayjs from 'dayjs';
 
-let incidentsStore = [...mockIncidents];
-let nextId = mockIncidents.length + 1;
-
-const incidentsService = {
-  getAll:   async ()              => incidentsStore,
-  getById:  async (id)            => incidentsStore.find(i => i.id === id),
-  create:   async (data)          => {
-    const inc = { ...data, id: nextId++, progress: 0, status: 'open',
-      assignedDate: null, analysisDate: null, resolutionDate: null };
-    incidentsStore = [...incidentsStore, inc];
-    return inc;
-  },
-  update:   async (id, data)      => {
-    incidentsStore = incidentsStore.map(i => i.id === id ? { ...i, ...data } : i);
-    return incidentsStore.find(i => i.id === id);
-  },
-  resolve:  async (id, resolution) => {
-    const updated = { ...incidentsStore.find(i => i.id === id), ...resolution,
-      status: 'resolved', progress: 100, resolutionDate: dayjs().format('YYYY-MM-DD HH:mm') };
-    incidentsStore = incidentsStore.map(i => i.id === id ? updated : i);
-    return updated;
-  },
-  delete:   async (id)            => { incidentsStore = incidentsStore.filter(i => i.id !== id); return id; },
+export const incidentsService = {
+  getAll: () => apiClient.get('/incidents'),
+  getById: (id) => apiClient.get(`/incidents/${id}`),
+  create: (data) => apiClient.post('/incidents', data),
+  update: (id, data) => apiClient.patch(`/incidents/${id}`, data),
+  delete: (id) => apiClient.delete(`/incidents/${id}`),
+  resolve: (id, resolution) => apiClient.post(`/incidents/${id}/resolve`, resolution),
+  getStatistics: () => apiClient.get('/incidents/statistics'),
+  search: (query) => apiClient.get('/incidents/search', { params: { q: query } }),
+  getBySeverity: (severity) => apiClient.get(`/incidents/severity/${severity}`),
 };
 
-export const useGetIncidentsQuery = () =>
-  useQuery({ queryKey: ['incidents'], queryFn: incidentsService.getAll, initialData: mockIncidents });
+export const useGetIncidentsQuery = () => {
+  return useQuery({
+    queryKey: ['incidents'],
+    queryFn: async () => {
+      const response = await incidentsService.getAll();
+      console.log('📡 Incidentes recibidos:', response.data);
+      // Normalizar la respuesta
+      const incidents = response.data?.data || response.data || [];
+      return incidents;
+    },
+  });
+};
 
 export const useCreateIncidentMutation = () => {
-  const qc = useQueryClient();
-  return useMutation({ mutationFn: (data) => incidentsService.create(data), onSuccess: () => qc.invalidateQueries(['incidents']) });
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data) => incidentsService.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['incidents'] });
+    },
+  });
 };
 
 export const useUpdateIncidentMutation = () => {
-  const qc = useQueryClient();
-  return useMutation({ mutationFn: ({ id, data }) => incidentsService.update(id, data), onSuccess: () => qc.invalidateQueries(['incidents']) });
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }) => incidentsService.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['incidents'] });
+    },
+  });
 };
 
 export const useResolveIncidentMutation = () => {
-  const qc = useQueryClient();
-  return useMutation({ mutationFn: ({ id, resolution }) => incidentsService.resolve(id, resolution), onSuccess: () => qc.invalidateQueries(['incidents']) });
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, resolution }) => incidentsService.resolve(id, resolution),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['incidents'] });
+    },
+  });
 };
 
 export const useDeleteIncidentMutation = () => {
-  const qc = useQueryClient();
-  return useMutation({ mutationFn: (id) => incidentsService.delete(id), onSuccess: () => qc.invalidateQueries(['incidents']) });
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => incidentsService.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['incidents'] });
+    },
+  });
+};
+
+export const useIncidentStatisticsQuery = () => {
+  return useQuery({
+    queryKey: ['incidents', 'statistics'],
+    queryFn: async () => {
+      const response = await incidentsService.getStatistics();
+      return response.data?.data || response.data;
+    },
+  });
 };
 
 export default incidentsService;

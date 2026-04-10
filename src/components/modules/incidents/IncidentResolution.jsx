@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card, Form, Input, Select, Button, Steps, Alert, Space, Tag, Timeline,
-         message, Empty, List, Divider } from 'antd';
-import { CheckCircleOutlined, SolutionOutlined, TeamOutlined, SearchOutlined } from '@ant-design/icons';
+         message, Empty, List, Divider, Spin } from 'antd';
+import { CheckCircleOutlined, SolutionOutlined, SearchOutlined } from '@ant-design/icons';
+import { useResolveIncidentMutation } from '../../../services/api/incidentsService';
 
 const { TextArea } = Input;
 
@@ -15,9 +16,12 @@ const WHY_QUESTIONS = [
 
 const IncidentResolution = ({ incidents = [], onResolve, onSelectIncident }) => {
   const [selectedIncident, setSelectedIncident] = useState(null);
-  const [currentStep, setCurrentStep]           = useState(0);
-  const [whyAnswers, setWhyAnswers]              = useState(['', '', '', '', '']);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [whyAnswers, setWhyAnswers] = useState(['', '', '', '', '']);
   const [form] = Form.useForm();
+  const [resolving, setResolving] = useState(false);
+  
+  const resolveMutation = useResolveIncidentMutation();
 
   // Incidentes pendientes de resolución
   const pending = incidents.filter(i => i.status === 'open' || i.status === 'inProgress');
@@ -36,21 +40,32 @@ const IncidentResolution = ({ incidents = [], onResolve, onSelectIncident }) => 
   const rootCauseSummary = whyAnswers.filter(Boolean).join(' → ');
 
   const handleResolve = async (values) => {
+    setResolving(true);
     try {
-      await onResolve({
+      // Llamada REAL al backend
+      await resolveMutation.mutateAsync({
         id: selectedIncident.id,
         resolution: {
           solution: values.solution,
           rootCause: rootCauseSummary,
-          preventiveMeasures: values.preventiveMeasures,
+          preventiveMeasures: values.preventiveMeasures || '',
           resolutionTime: Number(values.resolutionTime),
-          closingNotes: values.closingNotes,
+          closingNotes: values.closingNotes || '',
         },
       });
+      
       setCurrentStep(2);
       message.success('Incidente resuelto exitosamente');
-    } catch {
-      message.error('Error al resolver el incidente');
+      
+      // Notificar al padre para refrescar la lista
+      if (onResolve) {
+        onResolve({ id: selectedIncident.id, resolution: values });
+      }
+    } catch (error) {
+      console.error('Error al resolver:', error);
+      message.error(error.response?.data?.message || 'Error al resolver el incidente');
+    } finally {
+      setResolving(false);
     }
   };
 
@@ -79,7 +94,9 @@ const IncidentResolution = ({ incidents = [], onResolve, onSelectIncident }) => 
                           {inc.severity}
                         </Tag>
                       </div>
-                      <div className="text-xs text-gray-400 mt-1">{inc.reportedDate}</div>
+                      <div className="text-xs text-gray-400 mt-1">
+                        {inc.reportedDate ? new Date(inc.reportedDate).toLocaleDateString() : '—'}
+                      </div>
                     </div>
                   </List.Item>
                 )}
@@ -106,10 +123,12 @@ const IncidentResolution = ({ incidents = [], onResolve, onSelectIncident }) => 
             }
           >
             <Steps
-              current={currentStep} size="small" className="mb-6"
+              current={currentStep} 
+              size="small" 
+              className="mb-6"
               items={[
-                { title: 'Causa Raíz', icon: <SearchOutlined />      },
-                { title: 'Solución',   icon: <SolutionOutlined />    },
+                { title: 'Causa Raíz', icon: <SearchOutlined /> },
+                { title: 'Solución',   icon: <SolutionOutlined /> },
                 { title: 'Verificado', icon: <CheckCircleOutlined /> },
               ]}
             />
@@ -120,7 +139,9 @@ const IncidentResolution = ({ incidents = [], onResolve, onSelectIncident }) => 
                 <Alert
                   message="Análisis de Causa Raíz — Método de los 5 Porqués"
                   description="Responde cada nivel para identificar la causa raíz real del incidente."
-                  type="info" showIcon className="mb-4"
+                  type="info" 
+                  showIcon 
+                  className="mb-4"
                 />
 
                 <div className="mb-3 p-3 bg-gray-50 rounded border">
@@ -150,12 +171,15 @@ const IncidentResolution = ({ incidents = [], onResolve, onSelectIncident }) => 
                   <Alert
                     message="Cadena causal identificada"
                     description={<span className="text-xs">{rootCauseSummary}</span>}
-                    type="success" showIcon className="mt-4 mb-4"
+                    type="success" 
+                    showIcon 
+                    className="mt-4 mb-4"
                   />
                 )}
 
                 <Button
-                  type="primary" onClick={() => setCurrentStep(1)}
+                  type="primary" 
+                  onClick={() => setCurrentStep(1)}
                   disabled={whyAnswers[0] === ''}
                 >
                   Continuar con la Solución
@@ -170,7 +194,9 @@ const IncidentResolution = ({ incidents = [], onResolve, onSelectIncident }) => 
                   <Alert
                     message="Causa raíz identificada"
                     description={<span className="text-xs">{rootCauseSummary}</span>}
-                    type="info" showIcon className="mb-4"
+                    type="info" 
+                    showIcon 
+                    className="mb-4"
                   />
                 )}
 
@@ -182,12 +208,19 @@ const IncidentResolution = ({ incidents = [], onResolve, onSelectIncident }) => 
                   <TextArea rows={3} placeholder="Describa en detalle la solución implementada" />
                 </Form.Item>
 
-                <Form.Item name="preventiveMeasures" label="Medidas Preventivas (para evitar recurrencia)">
+                <Form.Item 
+                  name="preventiveMeasures" 
+                  label="Medidas Preventivas (para evitar recurrencia)"
+                >
                   <TextArea rows={3} placeholder="¿Qué cambios o controles se implementarán para prevenir que ocurra de nuevo?" />
                 </Form.Item>
 
                 <div className="grid grid-cols-2 gap-x-4">
-                  <Form.Item name="resolutionTime" label="Tiempo de Resolución (horas)" rules={[{ required: true }]}>
+                  <Form.Item 
+                    name="resolutionTime" 
+                    label="Tiempo de Resolución (horas)" 
+                    rules={[{ required: true, message: 'Ingrese el tiempo de resolución' }]}
+                  >
                     <Input type="number" min={0} step={0.5} placeholder="Ej: 4.5" />
                   </Form.Item>
                   <Form.Item name="closingNotes" label="Notas de Cierre">
@@ -197,7 +230,12 @@ const IncidentResolution = ({ incidents = [], onResolve, onSelectIncident }) => 
 
                 <Space>
                   <Button onClick={() => setCurrentStep(0)}>← Atrás</Button>
-                  <Button type="primary" htmlType="submit" icon={<CheckCircleOutlined />}>
+                  <Button 
+                    type="primary" 
+                    htmlType="submit" 
+                    icon={<CheckCircleOutlined />}
+                    loading={resolving}
+                  >
                     Marcar como Resuelto
                   </Button>
                 </Space>
@@ -215,15 +253,20 @@ const IncidentResolution = ({ incidents = [], onResolve, onSelectIncident }) => 
                   className="text-left max-w-sm mx-auto"
                   items={[
                     { color: 'green', children: 'Análisis de causa raíz completado (5 Porqués)' },
-                    { color: 'green', children: 'Solución documentada e implementada'            },
-                    { color: 'green', children: 'Medidas preventivas registradas'                },
-                    { color: 'green', children: 'Incidente cerrado en el sistema'                },
+                    { color: 'green', children: 'Solución documentada e implementada' },
+                    { color: 'green', children: 'Medidas preventivas registradas' },
+                    { color: 'green', children: 'Incidente cerrado en el sistema' },
                   ]}
                 />
 
                 <Button
-                  type="primary" className="mt-4"
-                  onClick={() => { setSelectedIncident(null); setCurrentStep(0); }}
+                  type="primary" 
+                  className="mt-4"
+                  onClick={() => { 
+                    setSelectedIncident(null); 
+                    setCurrentStep(0);
+                    form.resetFields();
+                  }}
                 >
                   Resolver otro incidente
                 </Button>

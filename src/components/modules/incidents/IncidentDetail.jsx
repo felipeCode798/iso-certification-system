@@ -1,52 +1,87 @@
 import React from 'react';
-import { Modal, Descriptions, Tag, Timeline, Button, Card, Progress, Steps, Badge, Divider } from 'antd';
+import { Modal, Descriptions, Tag, Timeline, Button, Card, Progress, Steps, Badge } from 'antd';
 import {
   CheckCircleOutlined, ClockCircleOutlined,
   ExclamationCircleOutlined, LockOutlined,
 } from '@ant-design/icons';
+import dayjs from 'dayjs';
 
 const severityConfig = {
-  critical: { color: 'red',    label: 'Crítico'  },
-  high:     { color: 'orange', label: 'Alto'     },
-  medium:   { color: 'gold',   label: 'Medio'    },
-  low:      { color: 'green',  label: 'Bajo'     },
+  critical: { color: 'red', label: 'Crítico' },
+  high: { color: 'orange', label: 'Alto' },
+  medium: { color: 'gold', label: 'Medio' },
+  low: { color: 'green', label: 'Bajo' },
 };
 
 const statusConfig = {
-  open:       { badge: 'error',   label: 'Abierto',     step: 0 },
+  open: { badge: 'error', label: 'Abierto', step: 0 },
   inProgress: { badge: 'warning', label: 'En Progreso', step: 1 },
-  resolved:   { badge: 'success', label: 'Resuelto',    step: 2 },
-  closed:     { badge: 'default', label: 'Cerrado',     step: 3 },
+  resolved: { badge: 'success', label: 'Resuelto', step: 2 },
+  closed: { badge: 'default', label: 'Cerrado', step: 3 },
 };
 
 const categoryColors = {
   technical: 'cyan',
-  process:   'blue',
-  security:  'red',
-  service:   'purple',
-  quality:   'green',
+  process: 'blue',
+  security: 'red',
+  service: 'purple',
+  quality: 'green',
 };
 
 const IncidentDetail = ({ visible, onClose, incident, onResolve }) => {
   if (!incident) return null;
 
-  const sev    = severityConfig[incident.severity] || severityConfig.low;
-  const stat   = statusConfig[incident.status]     || statusConfig.open;
-  const slaUsed = incident.slaTime ? Math.round((incident.resolutionTime / incident.slaTime) * 100) : 0;
-  const slaOk   = slaUsed <= 100;
+  const sev = severityConfig[incident.severity] || severityConfig.low;
+  const stat = statusConfig[incident.status] || statusConfig.open;
+  
+  // Cálculo SLA con datos reales
+  const slaUsed = incident.slaTime && incident.resolutionTime 
+    ? Math.round((incident.resolutionTime / incident.slaTime) * 100) 
+    : 0;
+  const slaOk = slaUsed <= 100;
 
+  const formatDate = (date) => {
+    if (!date) return null;
+    return dayjs(date).format('DD/MM/YYYY HH:mm');
+  };
+
+  // Timeline DINÁMICA con datos reales del backend
   const timelineItems = [
-    { color: 'blue',  dot: <ExclamationCircleOutlined />, label: 'Reportado',   time: incident.reportedDate,    desc: `Por: ${incident.reportedBy}` },
-    { color: 'orange',dot: <ClockCircleOutlined />,       label: 'Asignado',    time: incident.assignedDate,    desc: `A: ${incident.assignedTo || '—'}` },
-    { color: 'purple',dot: <ClockCircleOutlined />,       label: 'En análisis', time: incident.analysisDate,    desc: 'Análisis de causa raíz iniciado' },
-    { color: 'green', dot: <CheckCircleOutlined />,       label: 'Resolución',  time: incident.resolutionDate,  desc: incident.resolution || 'Pendiente' },
+    { 
+      color: incident.reportedDate ? 'blue' : 'gray', 
+      dot: <ExclamationCircleOutlined />, 
+      label: 'Reportado', 
+      time: incident.reportedDate, 
+      desc: `Por: ${incident.reportedBy || '—'}` 
+    },
+    { 
+      color: incident.assignedDate ? 'orange' : 'gray', 
+      dot: <ClockCircleOutlined />, 
+      label: 'Asignado', 
+      time: incident.assignedDate, 
+      desc: `A: ${incident.assignedTo || '—'}` 
+    },
+    { 
+      color: incident.analysisDate ? 'purple' : 'gray', 
+      dot: <ClockCircleOutlined />, 
+      label: 'En análisis', 
+      time: incident.analysisDate, 
+      desc: incident.rootCause ? 'Análisis de causa raíz completado' : 'Análisis de causa raíz pendiente' 
+    },
+    { 
+      color: incident.resolutionDate ? 'green' : 'gray', 
+      dot: <CheckCircleOutlined />, 
+      label: 'Resolución', 
+      time: incident.resolutionDate, 
+      desc: incident.resolution || 'Pendiente' 
+    },
   ];
 
   return (
     <Modal
       title={
-        <div className="flex items-center gap-3">
-          <span className="font-bold">Incidente #{incident.id}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontWeight: 'bold' }}>Incidente #{incident.id}</span>
           <Tag color={sev.color}>{sev.label}</Tag>
           <Badge status={stat.badge} text={stat.label} />
         </div>
@@ -57,50 +92,60 @@ const IncidentDetail = ({ visible, onClose, incident, onResolve }) => {
       footer={[
         <Button key="close" onClick={onClose}>Cerrar</Button>,
         incident.status !== 'resolved' && incident.status !== 'closed' && (
-          <Button key="resolve" type="primary" icon={<CheckCircleOutlined />} onClick={() => onResolve?.(incident)}>
+          <Button 
+            key="resolve" 
+            type="primary" 
+            icon={<CheckCircleOutlined />} 
+            onClick={() => onResolve?.(incident)}
+          >
             Resolver Incidente
           </Button>
         ),
       ].filter(Boolean)}
     >
-      {/* Título y progreso */}
-      <div className="mb-4 p-4 bg-gray-50 rounded-lg border">
-        <h3 className="text-base font-semibold mb-2">{incident.title}</h3>
-        <div className="flex items-center gap-4">
-          <div className="flex-1">
-            <div className="text-xs text-gray-500 mb-1">Progreso de resolución</div>
-            <Progress percent={incident.progress} status={incident.status === 'resolved' ? 'success' : 'active'} />
+      <div style={{ marginBottom: '16px', padding: '16px', background: '#f9f9f9', borderRadius: '8px', border: '1px solid #e8e8e8' }}>
+        <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '8px' }}>{incident.title}</h3>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>Progreso de resolución</div>
+            <Progress 
+              percent={incident.progress || 0} 
+              status={incident.status === 'resolved' ? 'success' : 'active'} 
+            />
           </div>
           {incident.slaTime && (
-            <div className="text-center min-w-20">
-              <div className="text-xs text-gray-500 mb-1">SLA</div>
+            <div style={{ textAlign: 'center', minWidth: '80px' }}>
+              <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>SLA</div>
               <Progress
-                type="circle" width={60}
+                type="circle"
+                width={60}
                 percent={Math.min(slaUsed, 100)}
                 strokeColor={slaOk ? '#52c41a' : '#ff4d4f'}
-                format={() => <span className="text-xs">{slaOk ? '✓' : '!'}</span>}
+                format={() => <span style={{ fontSize: '12px' }}>{slaOk ? '✓' : '!'}</span>}
               />
-              <div className="text-xs text-gray-400 mt-1">{incident.resolutionTime || 0}/{incident.slaTime}h</div>
+              <div style={{ fontSize: '12px', color: '#999', marginTop: '4px' }}>
+                {incident.resolutionTime || 0}/{incident.slaTime}h
+              </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* Pasos del proceso */}
       <Steps
-        current={stat.step} size="small" className="mb-4"
+        current={stat.step}
+        size="small"
+        style={{ marginBottom: '16px' }}
         items={[
-          { title: 'Reportado',    icon: <ExclamationCircleOutlined /> },
-          { title: 'En Progreso',  icon: <ClockCircleOutlined />       },
-          { title: 'Resuelto',     icon: <CheckCircleOutlined />       },
-          { title: 'Cerrado',      icon: <LockOutlined />              },
+          { title: 'Reportado', icon: <ExclamationCircleOutlined /> },
+          { title: 'En Progreso', icon: <ClockCircleOutlined /> },
+          { title: 'Resuelto', icon: <CheckCircleOutlined /> },
+          { title: 'Cerrado', icon: <LockOutlined /> },
         ]}
       />
 
-      <div className="grid grid-cols-2 gap-4">
-        {/* Columna izquierda — Detalles */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
         <div>
-          <Card size="small" title="Información del Incidente" className="mb-3">
+          <Card size="small" title="Información del Incidente" style={{ marginBottom: '12px' }}>
             <Descriptions column={1} size="small">
               <Descriptions.Item label="Categoría">
                 <Tag color={categoryColors[incident.category]}>{incident.category}</Tag>
@@ -108,29 +153,33 @@ const IncidentDetail = ({ visible, onClose, incident, onResolve }) => {
               <Descriptions.Item label="Norma">
                 {incident.standard ? <Tag color="geekblue">{incident.standard.toUpperCase()}</Tag> : '—'}
               </Descriptions.Item>
-              <Descriptions.Item label="Reportado por">{incident.reportedBy}</Descriptions.Item>
+              <Descriptions.Item label="Reportado por">{incident.reportedBy || '—'}</Descriptions.Item>
               <Descriptions.Item label="Asignado a">{incident.assignedTo || '—'}</Descriptions.Item>
               <Descriptions.Item label="Descripción">
-                <span className="text-xs">{incident.description}</span>
+                <span style={{ fontSize: '12px' }}>{incident.description}</span>
               </Descriptions.Item>
               <Descriptions.Item label="Impacto">
-                <span className="text-xs text-red-600">{incident.impact}</span>
+                <span style={{ fontSize: '12px', color: '#ff4d4f' }}>{incident.impact || 'No especificado'}</span>
               </Descriptions.Item>
               {incident.workaround && (
                 <Descriptions.Item label="Workaround">
-                  <span className="text-xs text-blue-600">{incident.workaround}</span>
+                  <span style={{ fontSize: '12px', color: '#1890ff' }}>{incident.workaround}</span>
                 </Descriptions.Item>
               )}
               {incident.resolution && (
                 <Descriptions.Item label="Resolución">
-                  <span className="text-xs text-green-600">{incident.resolution}</span>
+                  <span style={{ fontSize: '12px', color: '#52c41a' }}>{incident.resolution}</span>
+                </Descriptions.Item>
+              )}
+              {incident.rootCause && (
+                <Descriptions.Item label="Causa Raíz">
+                  <span style={{ fontSize: '12px' }}>{incident.rootCause}</span>
                 </Descriptions.Item>
               )}
             </Descriptions>
           </Card>
         </div>
 
-        {/* Columna derecha — Línea de tiempo */}
         <div>
           <Card size="small" title="Línea de Tiempo">
             <Timeline
@@ -139,12 +188,12 @@ const IncidentDetail = ({ visible, onClose, incident, onResolve }) => {
                 dot: item.dot,
                 children: (
                   <div>
-                    <div className="font-medium text-sm">{item.label}</div>
+                    <div style={{ fontWeight: '500', fontSize: '13px' }}>{item.label}</div>
                     {item.time
-                      ? <div className="text-xs text-gray-500">{item.time}</div>
-                      : <div className="text-xs text-gray-400 italic">Pendiente</div>
+                      ? <div style={{ fontSize: '11px', color: '#999' }}>{formatDate(item.time)}</div>
+                      : <div style={{ fontSize: '11px', color: '#999', fontStyle: 'italic' }}>Pendiente</div>
                     }
-                    <div className="text-xs text-gray-600">{item.desc}</div>
+                    <div style={{ fontSize: '11px', color: '#666' }}>{item.desc}</div>
                   </div>
                 ),
               }))}

@@ -11,7 +11,9 @@ export const useGetDashboardQuery = () => {
   return useQuery({
     queryKey: ['dashboard'],
     queryFn: async () => {
+      console.log('🔄 Obteniendo datos del dashboard...');
       const response = await dashboardService.getDashboard();
+      console.log('📡 Dashboard data:', response.data);
       return response.data?.data || response.data;
     },
   });

@@ -1,6 +1,6 @@
 // src/components/modules/nonconformities/NCAnalysis.jsx
-import React, { useState } from 'react';
-import { Modal, Steps, Form, Input, Button, Card, Timeline, Tag, Space, message, DatePicker, Select } from 'antd';
+import React, { useState, useEffect } from 'react';
+import { Modal, Steps, Form, Input, Button, Card, Timeline, Tag, Space, message, DatePicker, Select, Spin } from 'antd';
 import { CheckCircleOutlined, SolutionOutlined, ToolOutlined, AuditOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
@@ -10,8 +10,33 @@ const { TextArea } = Input;
 const NCAnalysis = ({ visible, onClose, nc, onSave }) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [form] = Form.useForm();
-  const [rootCause, setRootCause] = useState([]);
+  const [rootCauseAnswers, setRootCauseAnswers] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (visible && nc) {
+      // Si ya tiene análisis previo, cargarlo
+      if (nc.whyAnalysis && nc.whyAnalysis.length > 0) {
+        const whyValues = {};
+        nc.whyAnalysis.forEach((answer, idx) => {
+          whyValues[`why${idx + 1}`] = answer;
+        });
+        form.setFieldsValue({
+          ...whyValues,
+          correctiveActions: nc.correctiveActions,
+          preventiveActions: nc.preventiveActions,
+          responsible: nc.responsible,
+          deadline: nc.deadline ? dayjs(nc.deadline) : dayjs().add(15, 'day'),
+        });
+        setRootCauseAnswers(nc.whyAnalysis);
+        setCurrentStep(2);
+      } else {
+        form.resetFields();
+        setRootCauseAnswers([]);
+        setCurrentStep(0);
+      }
+    }
+  }, [visible, nc, form]);
 
   const steps = [
     { title: 'Identificación', icon: <SolutionOutlined /> },
@@ -27,32 +52,40 @@ const NCAnalysis = ({ visible, onClose, nc, onSave }) => {
         whyAnswers.push(values[`why${i}`]);
       }
     }
-    setRootCause(whyAnswers);
+    setRootCauseAnswers(whyAnswers);
     setCurrentStep(2);
   };
 
   const handleSubmitActions = async (values) => {
     setLoading(true);
     const analysis = {
-      ncId: nc?.id,
-      rootCause: rootCause,
+      whyAnalysis: rootCauseAnswers,
+      rootCause: rootCauseAnswers[rootCauseAnswers.length - 1] || '',
       correctiveActions: values.correctiveActions,
       preventiveActions: values.preventiveActions,
       responsible: values.responsible,
       deadline: values.deadline?.format('YYYY-MM-DD'),
-      verificationDate: values.verificationDate?.format('YYYY-MM-DD'),
     };
     await onSave(analysis);
     setLoading(false);
-    message.success('Análisis guardado exitosamente');
-    onClose();
+    setCurrentStep(3);
   };
 
   if (!nc) return null;
 
+  const getSeverityColor = () => {
+    const colors = { critical: 'red', major: 'orange', minor: 'gold' };
+    return colors[nc.severity] || 'default';
+  };
+
   return (
     <Modal
-      title={`Análisis de Causa Raíz - NC #${nc.id}`}
+      title={
+        <div className="flex items-center gap-2">
+          <span>Análisis de Causa Raíz</span>
+          <Tag color={getSeverityColor()}>NC #{nc.id}</Tag>
+        </div>
+      }
       open={visible}
       onCancel={onClose}
       width={800}
@@ -70,13 +103,15 @@ const NCAnalysis = ({ visible, onClose, nc, onSave }) => {
           <h4 className="font-semibold mb-2">No Conformidad</h4>
           <p>{nc.description}</p>
           <Space className="mt-2">
-            <Tag color={nc.severity === 'critical' ? 'red' : nc.severity === 'major' ? 'orange' : 'yellow'}>
-              {nc.severity?.toUpperCase()}
-            </Tag>
+            <Tag color={getSeverityColor()}>{nc.severity?.toUpperCase()}</Tag>
             <Tag>{nc.source}</Tag>
-            <Tag>{nc.standard?.toUpperCase()}</Tag>
+            {nc.standard && <Tag color="geekblue">{nc.standard?.toUpperCase()}</Tag>}
           </Space>
-          {nc.clause && <div className="mt-2"><Tag color="blue">Cláusula: {nc.clause}</Tag></div>}
+          {nc.clause && (
+            <div className="mt-2">
+              <Tag color="blue">Cláusula: {nc.clause}</Tag>
+            </div>
+          )}
           <div className="mt-4">
             <Button type="primary" onClick={() => setCurrentStep(1)}>
               Iniciar Análisis
@@ -86,9 +121,11 @@ const NCAnalysis = ({ visible, onClose, nc, onSave }) => {
       )}
 
       {currentStep === 1 && (
-        <Form onFinish={handleWhyAnalysis} layout="vertical">
+        <Form form={form} onFinish={handleWhyAnalysis} layout="vertical">
           <h4 className="font-semibold mb-4">Método de los 5 Porqués</h4>
-          <p className="text-gray-500 mb-4">Responda las siguientes preguntas para identificar la causa raíz:</p>
+          <p className="text-gray-500 mb-4">
+            Responda las siguientes preguntas para identificar la causa raíz:
+          </p>
           {[1, 2, 3, 4, 5].map((num) => (
             <Form.Item
               key={num}
@@ -96,7 +133,10 @@ const NCAnalysis = ({ visible, onClose, nc, onSave }) => {
               label={`${num}. ¿Por qué ocurrió?`}
               rules={[{ required: num === 1, message: 'Este campo es requerido' }]}
             >
-              <TextArea rows={2} placeholder={`Responda el porqué número ${num}`} />
+              <TextArea 
+                rows={2} 
+                placeholder={`Responda el porqué número ${num}`} 
+              />
             </Form.Item>
           ))}
           <Form.Item>
@@ -111,15 +151,22 @@ const NCAnalysis = ({ visible, onClose, nc, onSave }) => {
       )}
 
       {currentStep === 2 && (
-        <Form onFinish={handleSubmitActions} layout="vertical" initialValues={{
-          deadline: dayjs().add(15, 'day'),
-          verificationDate: dayjs().add(30, 'day'),
-        }}>
+        <Form
+          form={form}
+          onFinish={handleSubmitActions}
+          layout="vertical"
+          initialValues={{
+            deadline: dayjs().add(15, 'day'),
+          }}
+        >
           <Card className="mb-4">
             <h4 className="font-semibold mb-2">Causa Raíz Identificada</h4>
             <Timeline>
-              {rootCause.map((cause, idx) => (
-                <Timeline.Item key={idx} color={idx === rootCause.length - 1 ? 'red' : 'blue'}>
+              {rootCauseAnswers.map((cause, idx) => (
+                <Timeline.Item 
+                  key={idx} 
+                  color={idx === rootCauseAnswers.length - 1 ? 'red' : 'blue'}
+                >
                   {cause}
                 </Timeline.Item>
               ))}
@@ -131,14 +178,17 @@ const NCAnalysis = ({ visible, onClose, nc, onSave }) => {
             label="Acciones Correctivas"
             rules={[{ required: true, message: 'Ingrese las acciones correctivas' }]}
           >
-            <TextArea rows={3} placeholder="Acciones para eliminar la causa raíz" />
+            <TextArea 
+              rows={3} 
+              placeholder="Acciones para eliminar la causa raíz" 
+            />
           </Form.Item>
 
-          <Form.Item
-            name="preventiveActions"
-            label="Acciones Preventivas"
-          >
-            <TextArea rows={3} placeholder="Acciones para prevenir recurrencia" />
+          <Form.Item name="preventiveActions" label="Acciones Preventivas">
+            <TextArea 
+              rows={3} 
+              placeholder="Acciones para prevenir recurrencia" 
+            />
           </Form.Item>
 
           <Form.Item
@@ -162,13 +212,6 @@ const NCAnalysis = ({ visible, onClose, nc, onSave }) => {
             <DatePicker className="w-full" format="DD/MM/YYYY" />
           </Form.Item>
 
-          <Form.Item
-            name="verificationDate"
-            label="Fecha de Verificación Planificada"
-          >
-            <DatePicker className="w-full" format="DD/MM/YYYY" />
-          </Form.Item>
-
           <Form.Item>
             <Space>
               <Button onClick={() => setCurrentStep(1)}>Atrás</Button>
@@ -185,7 +228,9 @@ const NCAnalysis = ({ visible, onClose, nc, onSave }) => {
           <CheckCircleOutlined style={{ fontSize: 64, color: '#52c41a' }} />
           <h3 className="mt-4">Análisis Completado</h3>
           <p>Las acciones correctivas han sido registradas.</p>
-          <Button type="primary" onClick={onClose}>Cerrar</Button>
+          <Button type="primary" onClick={onClose}>
+            Cerrar
+          </Button>
         </Card>
       )}
     </Modal>

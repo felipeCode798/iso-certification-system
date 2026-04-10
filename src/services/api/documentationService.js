@@ -24,8 +24,22 @@ export const useGetDocumentsQuery = () => {
     queryKey: ['documents'],
     queryFn: async () => {
       const response = await documentationService.getAll();
-      // La respuesta puede tener estructura { data: [...] } o directamente el array
-      return response.data?.data || response.data || [];
+      console.log('📡 API Response completa:', response);
+      
+      // Normalizar la respuesta para siempre devolver un array
+      let documents = [];
+      if (response.data?.data && Array.isArray(response.data.data)) {
+        documents = response.data.data;
+      } else if (Array.isArray(response.data)) {
+        documents = response.data;
+      } else if (response.data?.documents && Array.isArray(response.data.documents)) {
+        documents = response.data.documents;
+      } else {
+        documents = [];
+      }
+      
+      console.log('📄 Documentos normalizados:', documents.length);
+      return documents;
     },
   });
 };

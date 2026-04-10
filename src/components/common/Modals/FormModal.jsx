@@ -1,9 +1,9 @@
-// src/components/common/Modals/FormModal.jsx
 import React from 'react';
 import { Modal, Form, Button, Space } from 'antd';
 
-const FormModal = ({ visible, onCancel, onSubmit, title, children, loading = false, width = 600 }) => {
-  const [form] = Form.useForm();
+const FormModal = ({ visible, onCancel, onSubmit, title, children, loading = false, width = 600, form: externalForm }) => {
+  const [internalForm] = Form.useForm();
+  const form = externalForm || internalForm;
 
   const handleSubmit = async () => {
     try {
@@ -43,5 +43,9 @@ const FormModal = ({ visible, onCancel, onSubmit, title, children, loading = fal
     </Modal>
   );
 };
+
+// Exportar Item para usarlo en los hijos
+FormModal.Item = Form.Item;
+FormModal.useForm = Form.useForm;
 
 export default FormModal;

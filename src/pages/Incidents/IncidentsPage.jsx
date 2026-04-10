@@ -17,11 +17,11 @@ const IncidentsPage = () => {
   const [selectedIncident, setSelectedIncident] = useState(null);
   const [activeTab, setActiveTab] = useState('list');
 
-  const { data: incidents = [], isLoading }  = useGetIncidentsQuery();
-  const { mutateAsync: createIncident }      = useCreateIncidentMutation();
-  const { mutateAsync: updateIncident }      = useUpdateIncidentMutation();
-  const { mutateAsync: resolveIncident }     = useResolveIncidentMutation();
-  const { mutateAsync: deleteIncident }      = useDeleteIncidentMutation();
+  const { data: incidents = [], isLoading, refetch } = useGetIncidentsQuery();
+  const { mutateAsync: createIncident } = useCreateIncidentMutation();
+  const { mutateAsync: updateIncident } = useUpdateIncidentMutation();
+  const { mutateAsync: resolveIncident } = useResolveIncidentMutation();
+  const { mutateAsync: deleteIncident } = useDeleteIncidentMutation();
 
   const handleSubmit = async (values) => {
     try {
@@ -34,8 +34,10 @@ const IncidentsPage = () => {
       }
       setIsFormVisible(false);
       setSelectedIncident(null);
-    } catch {
-      message.error('Error al guardar');
+      refetch(); // Refrescar lista
+    } catch (error) {
+      console.error('Error:', error);
+      message.error(error.response?.data?.message || 'Error al guardar');
     }
   };
 
@@ -43,8 +45,11 @@ const IncidentsPage = () => {
     try {
       await resolveIncident({ id, resolution });
       message.success('Incidente resuelto exitosamente');
-    } catch {
-      message.error('Error al resolver el incidente');
+      refetch(); // Refrescar datos
+      setActiveTab('list'); // Volver a la lista después de resolver
+    } catch (error) {
+      console.error('Error:', error);
+      message.error(error.response?.data?.message || 'Error al resolver el incidente');
     }
   };
 
@@ -52,8 +57,10 @@ const IncidentsPage = () => {
     try {
       await deleteIncident(id);
       message.success('Incidente eliminado');
-    } catch {
-      message.error('Error al eliminar');
+      refetch(); // Refrescar lista
+    } catch (error) {
+      console.error('Error:', error);
+      message.error(error.response?.data?.message || 'Error al eliminar');
     }
   };
 
@@ -79,7 +86,7 @@ const IncidentsPage = () => {
     },
     {
       key: 'resolution',
-      label: <span><SolutionOutlined /> Resolución</span>,
+      label: <span><SolutionOutlined /> Resolución de Incidentes</span>,
       children: (
         <IncidentResolution
           incidents={incidents}
@@ -90,9 +97,14 @@ const IncidentsPage = () => {
   ];
 
   return (
-    <div className="incidents-page">
+    <div className="incidents-page" style={{ padding: '24px' }}>
       <h1 className="text-2xl font-bold mb-4">Gestión de Incidentes</h1>
-      <Tabs items={tabs} type="card" activeKey={activeTab} onChange={setActiveTab} />
+      <Tabs 
+        items={tabs} 
+        type="card" 
+        activeKey={activeTab} 
+        onChange={setActiveTab} 
+      />
       <IncidentForm
         visible={isFormVisible}
         onClose={() => { setIsFormVisible(false); setSelectedIncident(null); }}

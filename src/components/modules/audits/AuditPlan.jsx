@@ -1,12 +1,11 @@
 // src/components/modules/audits/AuditPlan.jsx
 import React, { useState } from 'react';
-import { Card, Timeline, Button, Space, Tag, Descriptions, Modal, Form, Input, TimePicker, Select, DatePicker, message } from 'antd';
+import { Card, Timeline, Button, Space, Tag, Descriptions, Modal, Form, Input, TimePicker, Select, message } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, DownloadOutlined, CalendarOutlined, UserOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
 const { TextArea } = Input;
 
-// Definir la función antes de usarla
 const getDefaultActivities = (audit) => [
   { id: 1, time: '09:00', title: 'Reunión de Apertura', type: 'opening', location: 'Sala de Juntas', responsible: audit?.auditor || 'Auditor Líder', description: 'Presentación del equipo auditor, confirmación de alcance y cronograma' },
   { id: 2, time: '10:00', title: 'Revisión de Documentación', type: 'audit', location: 'Oficina de Calidad', responsible: audit?.auditor || 'Auditor Líder', description: 'Revisión de manuales, procedimientos y registros' },

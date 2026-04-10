@@ -1,12 +1,22 @@
 // src/pages/Training/TrainingPage.jsx
-import React, { useState, useEffect } from 'react';
-import { Tabs, Button, message, Modal, Empty, Spin, Card, Row, Col, Statistic, Tag, Space } from 'antd';
-import { PlusOutlined, CalendarOutlined, TeamOutlined, BookOutlined, TrophyOutlined } from '@ant-design/icons';
+import React, { useState } from 'react';
+import { Tabs, Button, message, Modal, Empty, Spin, Card, Row, Col, Statistic } from 'antd';
+import { 
+  PlusOutlined, CalendarOutlined, TeamOutlined, 
+  BookOutlined, TrophyOutlined, ProfileOutlined 
+} from '@ant-design/icons';
 import TrainingList from '../../components/modules/training/TrainingList';
 import TrainingForm from '../../components/modules/training/TrainingForm';
 import CompetencyMatrix from '../../components/modules/training/CompetencyMatrix';
 import TrainingCalendar from '../../components/modules/training/TrainingCalendar';
-import { mockTrainings } from '../../utils/mockData';
+import {
+  useGetTrainingsQuery,
+  useCreateTrainingMutation,
+  useUpdateTrainingMutation,
+  useDeleteTrainingMutation,
+  useEnrollTrainingMutation,
+  useGetTrainingStatisticsQuery,
+} from '../../services/api/trainingService';
 
 const { TabPane } = Tabs;
 
@@ -14,49 +24,59 @@ const TrainingPage = () => {
   const [activeTab, setActiveTab] = useState('list');
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedTraining, setSelectedTraining] = useState(null);
-  const [trainings, setTrainings] = useState([]);
-  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    loadTrainings();
-  }, []);
-
-  const loadTrainings = () => {
-    setLoading(true);
-    setTimeout(() => {
-      setTrainings(mockTrainings);
-      setLoading(false);
-    }, 500);
+  const { data: trainingsData, isLoading, refetch } = useGetTrainingsQuery();
+  const { data: statsData } = useGetTrainingStatisticsQuery();
+  const createMutation = useCreateTrainingMutation();
+  const updateMutation = useUpdateTrainingMutation();
+  const deleteMutation = useDeleteTrainingMutation();
+  const enrollMutation = useEnrollTrainingMutation();
+  
+  const trainings = trainingsData?.data || trainingsData || [];
+  const stats = statsData?.data || statsData || {
+    total: 0,
+    totalEnrollments: 0,
+    avgCompetency: 0,
+    upcoming: 0,
   };
 
-  const handleCreate = (values) => {
-    const newTraining = {
-      ...values,
-      id: trainings.length + 1,
-      enrolled: 0,
-      status: 'planned',
-      createdAt: new Date().toISOString(),
-    };
-    setTrainings([newTraining, ...trainings]);
-    message.success('Capacitación programada exitosamente');
-    setModalVisible(false);
+  const handleCreate = async (values) => {
+    try {
+      await createMutation.mutateAsync(values);
+      message.success('Capacitación programada exitosamente');
+      setModalVisible(false);
+      refetch();
+    } catch (error) {
+      message.error(error.response?.data?.message || 'Error al crear');
+      throw error;
+    }
   };
 
-  const handleUpdate = (values) => {
-    const updatedTrainings = trainings.map(t => t.id === values.id ? { ...t, ...values } : t);
-    setTrainings(updatedTrainings);
-    message.success('Capacitación actualizada');
-    setModalVisible(false);
-    setSelectedTraining(null);
+  const handleUpdate = async (values) => {
+    try {
+      await updateMutation.mutateAsync({ id: values.id, data: values });
+      message.success('Capacitación actualizada');
+      setModalVisible(false);
+      setSelectedTraining(null);
+      refetch();
+    } catch (error) {
+      message.error(error.response?.data?.message || 'Error al actualizar');
+      throw error;
+    }
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     Modal.confirm({
       title: '¿Eliminar capacitación?',
       content: 'Esta acción no se puede deshacer',
-      onOk: () => {
-        setTrainings(trainings.filter(t => t.id !== id));
-        message.success('Capacitación eliminada');
+      onOk: async () => {
+        try {
+          await deleteMutation.mutateAsync(id);
+          message.success('Capacitación eliminada');
+          refetch();
+        } catch (error) {
+          message.error(error.response?.data?.message || 'Error al eliminar');
+        }
       },
     });
   };
@@ -70,47 +90,66 @@ const TrainingPage = () => {
     Modal.confirm({
       title: 'Confirmar inscripción',
       content: `¿Desea inscribirse en "${training.title}"?`,
-      onOk: () => {
-        const updatedTrainings = trainings.map(t => 
-          t.id === training.id ? { ...t, enrolled: t.enrolled + 1 } : t
-        );
-        setTrainings(updatedTrainings);
-        message.success(`Inscrito exitosamente en ${training.title}`);
+      onOk: async () => {
+        try {
+          // Aquí deberías obtener el userId del usuario actual
+          const userId = JSON.parse(localStorage.getItem('user'))?.id || 1;
+          await enrollMutation.mutateAsync({ id: training.id, userId });
+          message.success(`Inscrito exitosamente en ${training.title}`);
+          refetch();
+        } catch (error) {
+          message.error(error.response?.data?.message || 'Error al inscribirse');
+        }
       },
     });
   };
 
-  const getStats = () => {
-    const total = trainings.length;
-    const totalEnrolled = trainings.reduce((sum, t) => sum + (t.enrolled || 0), 0);
-    const averageAttendance = total > 0 ? (totalEnrolled / total).toFixed(1) : 0;
-    const upcoming = trainings.filter(t => new Date(t.date) > new Date()).length;
-    return { total, totalEnrolled, averageAttendance, upcoming };
-  };
-
-  const stats = getStats();
-
   return (
     <div className="training-page" style={{ padding: '24px' }}>
+      {/* Estadísticas rápidas */}
       <Row gutter={[16, 16]} className="mb-6">
         <Col span={6}>
-          <Card>
-            <Statistic title="Total Capacitaciones" value={stats.total} prefix={<BookOutlined />} />
+          <Card size="small">
+            <Statistic 
+              title="Total Capacitaciones" 
+              value={stats.total || 0} 
+              prefix={<BookOutlined />}
+              loading={isLoading}
+            />
           </Card>
         </Col>
         <Col span={6}>
-          <Card>
-            <Statistic title="Inscripciones Totales" value={stats.totalEnrolled} prefix={<TeamOutlined />} valueStyle={{ color: '#1890ff' }} />
+          <Card size="small">
+            <Statistic 
+              title="Inscripciones Totales" 
+              value={stats.totalEnrollments || 0} 
+              prefix={<TeamOutlined />} 
+              valueStyle={{ color: '#1890ff' }}
+              loading={isLoading}
+            />
           </Card>
         </Col>
         <Col span={6}>
-          <Card>
-            <Statistic title="Asistencia Promedio" value={stats.averageAttendance} suffix="por clase" prefix={<TrophyOutlined />} valueStyle={{ color: '#52c41a' }} />
+          <Card size="small">
+            <Statistic 
+              title="Competencia Promedio" 
+              value={stats.avgCompetency || 0} 
+              suffix="%" 
+              prefix={<TrophyOutlined />} 
+              valueStyle={{ color: '#52c41a' }}
+              loading={isLoading}
+            />
           </Card>
         </Col>
         <Col span={6}>
-          <Card>
-            <Statistic title="Próximas" value={stats.upcoming} prefix={<CalendarOutlined />} valueStyle={{ color: '#faad14' }} />
+          <Card size="small">
+            <Statistic 
+              title="Próximas Capacitaciones" 
+              value={stats.upcoming || 0} 
+              prefix={<CalendarOutlined />} 
+              valueStyle={{ color: '#faad14' }}
+              loading={isLoading}
+            />
           </Card>
         </Col>
       </Row>
@@ -118,56 +157,66 @@ const TrainingPage = () => {
       <Card>
         <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
           <h1 className="text-2xl font-bold">Gestión de Capacitación</h1>
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => { setSelectedTraining(null); setModalVisible(true); }}>
+          <Button 
+            type="primary" 
+            icon={<PlusOutlined />} 
+            onClick={() => { 
+              setSelectedTraining(null); 
+              setModalVisible(true); 
+            }}
+          >
             Programar Capacitación
           </Button>
         </div>
 
-        {loading ? (
+        {isLoading ? (
           <div className="flex justify-center py-12"><Spin size="large" /></div>
         ) : (
           <Tabs activeKey={activeTab} onChange={setActiveTab}>
-            <TabPane tab={`Capacitaciones (${trainings.length})`} key="list">
+            <TabPane 
+              tab={<span><BookOutlined /> Capacitaciones ({trainings.length})</span>} 
+              key="list"
+            >
               <TrainingList 
                 trainings={trainings} 
-                loading={loading} 
-                onEdit={(t) => { setSelectedTraining(t); setModalVisible(true); }} 
+                loading={isLoading} 
+                onEdit={(t) => { 
+                  setSelectedTraining(t); 
+                  setModalVisible(true); 
+                }} 
                 onDelete={handleDelete}
                 onView={handleView}
                 onEnroll={handleEnroll}
               />
             </TabPane>
-            <TabPane tab="Programar" key="schedule">
-              <div className="p-4">
-                <TrainingForm 
-                  visible={modalVisible} 
-                  onClose={() => { setModalVisible(false); setSelectedTraining(null); }} 
-                  onSubmit={selectedTraining ? handleUpdate : handleCreate} 
-                  training={selectedTraining} 
-                />
-                {!modalVisible && (
-                  <div className="text-center py-8">
-                    <p>Haga clic en "Programar Capacitación" para crear una nueva</p>
-                    <Button type="primary" onClick={() => setModalVisible(true)}>Programar Capacitación</Button>
-                  </div>
-                )}
-              </div>
-            </TabPane>
-            <TabPane tab="Matriz de Competencias" key="competency">
+            
+            <TabPane 
+              tab={<span><ProfileOutlined /> Matriz de Competencias</span>} 
+              key="competency"
+            >
               <CompetencyMatrix />
             </TabPane>
-            <TabPane tab="Calendario" key="calendar">
+            
+            <TabPane 
+              tab={<span><CalendarOutlined /> Calendario</span>} 
+              key="calendar"
+            >
               <TrainingCalendar trainings={trainings} />
             </TabPane>
           </Tabs>
         )}
       </Card>
 
+      {/* Modal para crear/editar capacitación */}
       <TrainingForm 
         visible={modalVisible} 
-        onClose={() => { setModalVisible(false); setSelectedTraining(null); }} 
+        onClose={() => { 
+          setModalVisible(false); 
+          setSelectedTraining(null); 
+        }} 
         onSubmit={selectedTraining ? handleUpdate : handleCreate} 
         training={selectedTraining} 
+        loading={createMutation.isPending || updateMutation.isPending}
       />
     </div>
   );
