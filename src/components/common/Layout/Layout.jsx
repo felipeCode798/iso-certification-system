@@ -1,29 +1,34 @@
-import React, { useState } from 'react';
+// src/components/common/Layout/Layout.jsx
+import React from 'react';
 import { Layout as AntLayout } from 'antd';
-import { Outlet } from 'react-router-dom'; // ← AGREGAR ESTE IMPORT
-import Header from './Header';
-import Sidebar from './Sidebar';
-import Footer from './Footer';
+import { Header } from './Header';
+import { Sidebar } from './Sidebar';
+import { Footer } from './Footer';
+import { CompanyProvider } from '../../../contexts/CompanyContext';
+import { useAuth } from '../../../contexts/AuthContext';
 
 const { Content } = AntLayout;
 
-const Layout = () => { // ← QUITAR { children }
-  const [collapsed, setCollapsed] = useState(false);
+export const Layout = ({ children }) => {
+  const { user } = useAuth();
+  
+  // Si no hay usuario o está cargando, no mostrar el layout
+  if (!user) {
+    return <div>Cargando...</div>;
+  }
 
   return (
-    <AntLayout className="min-h-screen">
-      <Sidebar collapsed={collapsed} setCollapsed={setCollapsed} />
-      <AntLayout>
-        <Header />
-        <Content className="m-4 p-4 bg-gray-50 rounded-lg">
-          <div className="fade-in">
-            <Outlet /> {/* ← CAMBIAR {children} POR <Outlet /> */}
-          </div>
-        </Content>
-        <Footer />
+    <CompanyProvider>
+      <AntLayout style={{ minHeight: '100vh' }}>
+        <Sidebar />
+        <AntLayout>
+          <Header />
+          <Content style={{ margin: '24px 16px', padding: 24, background: '#fff', minHeight: 280 }}>
+            {children}
+          </Content>
+          <Footer />
+        </AntLayout>
       </AntLayout>
-    </AntLayout>
+    </CompanyProvider>
   );
 };
-
-export default Layout;

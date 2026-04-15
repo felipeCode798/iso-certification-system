@@ -13,20 +13,19 @@ import ReportsPage from '../pages/Reports/ReportsPage';
 import SettingsPage from '../pages/Settings/SettingsPage';
 
 export const routes = [
-  { path: '/', element: Dashboard, name: 'Dashboard' },
-  { path: '/documentation', element: DocumentationPage, name: 'Documentación' },
-  { path: '/processes', element: ProcessesPage, name: 'Procesos' },
-  { path: '/risks', element: RisksPage, name: 'Riesgos' },
-  { path: '/incidents', element: IncidentsPage, name: 'Incidentes' },
-  { path: '/audits', element: AuditsPage, name: 'Auditorías' },
-  { path: '/training', element: TrainingPage, name: 'Capacitación' },
-  { path: '/indicators', element: IndicatorsPage, name: 'Indicadores' },
-  { path: '/nonconformities', element: NonConformitiesPage, name: 'No Conformidades' },
-  { path: '/improvement', element: ImprovementPage, name: 'Mejora Continua' },
-  { path: '/reports', element: ReportsPage, name: 'Reportes' },
-  { path: '/settings', element: SettingsPage, name: 'Configuración' },
+  { path: '/', element: Dashboard, name: 'Dashboard', roles: ['Super Administrador', 'Administrador ISO', 'Gerente', 'Auditor Interno', 'Colaborador'] },
+  { path: '/documentation', element: DocumentationPage, name: 'Documentación', roles: ['Super Administrador', 'Administrador ISO', 'Gerente', 'Auditor Interno'] },
+  { path: '/processes', element: ProcessesPage, name: 'Procesos', roles: ['Super Administrador', 'Administrador ISO', 'Gerente'] },
+  { path: '/risks', element: RisksPage, name: 'Riesgos', roles: ['Super Administrador', 'Administrador ISO', 'Gerente', 'Auditor Interno'] },
+  { path: '/incidents', element: IncidentsPage, name: 'Incidentes', roles: ['Super Administrador', 'Administrador ISO', 'Gerente', 'Colaborador'] },
+  { path: '/audits', element: AuditsPage, name: 'Auditorías', roles: ['Super Administrador', 'Administrador ISO', 'Auditor Interno'] },
+  { path: '/training', element: TrainingPage, name: 'Capacitación', roles: ['Super Administrador', 'Administrador ISO', 'Gerente'] },
+  { path: '/indicators', element: IndicatorsPage, name: 'Indicadores', roles: ['Super Administrador', 'Administrador ISO', 'Gerente'] },
+  { path: '/nonconformities', element: NonConformitiesPage, name: 'No Conformidades', roles: ['Super Administrador', 'Administrador ISO', 'Gerente', 'Auditor Interno'] },
+  { path: '/improvement', element: ImprovementPage, name: 'Mejora Continua', roles: ['Super Administrador', 'Administrador ISO', 'Gerente'] },
+  { path: '/reports', element: ReportsPage, name: 'Reportes', roles: ['Super Administrador', 'Administrador ISO', 'Gerente', 'Auditor Interno'] },
+  { path: '/settings', element: SettingsPage, name: 'Configuración', roles: ['Super Administrador', 'Administrador ISO'] },
 ];
-
 export const publicRoutes = [
   { path: '/login', element: null, name: 'Login' },
   { path: '/register', element: null, name: 'Register' },

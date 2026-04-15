@@ -1,72 +1,64 @@
 // src/App.jsx
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Provider } from 'react-redux';
-import { ToastContainer } from 'react-toastify';
-import { ConfigProvider, theme } from 'antd';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { store } from './store/store';
-import Layout from './components/common/Layout/Layout';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { ConfigProvider, App as AntApp } from 'antd';
+import esES from 'antd/locale/es_ES';
+import { AuthProvider } from './contexts/AuthContext';
+import { CompanyProvider } from './contexts/CompanyContext';
 import PrivateRoute from './services/auth/PrivateRoute';
+import { Layout } from './components/common/Layout/Layout';
 import LoginPage from './pages/Login/LoginPage';
-import Dashboard from './pages/Dashboard/Dashboard';
-import DocumentationPage from './pages/Documentation/DocumentationPage';
-import ProcessesPage from './pages/Processes/ProcessesPage';
-import RisksPage from './pages/Risks/RisksPage';
-import IncidentsPage from './pages/Incidents/IncidentsPage';
-import AuditsPage from './pages/Audits/AuditsPage';
-import TrainingPage from './pages/Training/TrainingPage';
-import IndicatorsPage from './pages/Indicators/IndicatorsPage';
-import NonConformitiesPage from './pages/NonConformities/NonConformitiesPage';
-import ImprovementPage from './pages/Improvement/ImprovementPage';
-import ReportsPage from './pages/Reports/ReportsPage';
-import SettingsPage from './pages/Settings/SettingsPage';
-import './assets/styles/global.css';
+import { routes } from './config/routes';
 
-const queryClient = new QueryClient();
+// Importar páginas dinámicamente
+const routeComponents = {
+  '/super-admin': React.lazy(() => import('./pages/SuperAdmin/SuperAdminDashboard')),
+  '/documentation': React.lazy(() => import('./pages/Documentation/DocumentationPage')),
+  '/processes': React.lazy(() => import('./pages/Processes/ProcessesPage')),
+  '/risks': React.lazy(() => import('./pages/Risks/RisksPage')),
+  '/incidents': React.lazy(() => import('./pages/Incidents/IncidentsPage')),
+  '/audits': React.lazy(() => import('./pages/Audits/AuditsPage')),
+  '/training': React.lazy(() => import('./pages/Training/TrainingPage')),
+  '/indicators': React.lazy(() => import('./pages/Indicators/IndicatorsPage')),
+  '/nonconformities': React.lazy(() => import('./pages/NonConformities/NonConformitiesPage')),
+  '/improvement': React.lazy(() => import('./pages/Improvement/ImprovementPage')),
+  '/reports': React.lazy(() => import('./pages/Reports/ReportsPage')),
+  '/settings': React.lazy(() => import('./pages/Settings/SettingsPage')),
+};
 
 function App() {
-  // Verificar si el usuario está autenticado
-  const isAuthenticated = !!localStorage.getItem('token');
-
   return (
-    <Provider store={store}>
-      <QueryClientProvider client={queryClient}>
-        <ConfigProvider
-          theme={{
-            algorithm: theme.defaultAlgorithm,
-            token: {
-              colorPrimary: '#1890ff',
-              borderRadius: 6,
-            },
-          }}
-        >
-          <Router>
-            <Routes>
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/" element={<PrivateRoute />}>
-                <Route element={<Layout />}>
-                  <Route index element={<Dashboard />} />
-                  <Route path="documentation" element={<DocumentationPage />} />
-                  <Route path="processes" element={<ProcessesPage />} />
-                  <Route path="risks" element={<RisksPage />} />
-                  <Route path="incidents" element={<IncidentsPage />} />
-                  <Route path="audits" element={<AuditsPage />} />
-                  <Route path="training" element={<TrainingPage />} />
-                  <Route path="indicators" element={<IndicatorsPage />} />
-                  <Route path="nonconformities" element={<NonConformitiesPage />} />
-                  <Route path="improvement" element={<ImprovementPage />} />
-                  <Route path="reports" element={<ReportsPage />} />
-                  <Route path="settings" element={<SettingsPage />} />
+    <ConfigProvider locale={esES}>
+      <AntApp>
+        <BrowserRouter>
+          <AuthProvider>
+            <CompanyProvider>
+              <Routes>
+                <Route path="/login" element={<LoginPage />} />
+                <Route element={<PrivateRoute />}>
+                  <Route element={<Layout />}>
+                    {routes.map((route) => {
+                      const Component = routeComponents[route.path] || route.element;
+                      return (
+                        <Route
+                          key={route.path}
+                          path={route.path}
+                          element={
+                            <React.Suspense fallback={<div>Cargando...</div>}>
+                              <Component />
+                            </React.Suspense>
+                          }
+                        />
+                      );
+                    })}
+                  </Route>
                 </Route>
-              </Route>
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-            <ToastContainer position="top-right" autoClose={3000} />
-          </Router>
-        </ConfigProvider>
-      </QueryClientProvider>
-    </Provider>
+              </Routes>
+            </CompanyProvider>
+          </AuthProvider>
+        </BrowserRouter>
+      </AntApp>
+    </ConfigProvider>
   );
 }
 

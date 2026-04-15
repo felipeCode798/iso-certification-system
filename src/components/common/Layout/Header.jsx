@@ -1,112 +1,110 @@
 // src/components/common/Layout/Header.jsx
-import React, { useState } from 'react';
-import { Layout, Menu, Dropdown, Avatar, Badge, Space, Typography, Button } from 'antd';
-import {
-  BellOutlined,
-  UserOutlined,
-  LogoutOutlined,
+import React from 'react';
+import { Layout, Avatar, Dropdown, Space, Badge, Select, Tooltip } from 'antd';
+import { 
+  BellOutlined, 
+  UserOutlined, 
+  LogoutOutlined, 
   SettingOutlined,
-  DashboardOutlined,
-  FileTextOutlined,
-  SafetyOutlined,
-  AlertOutlined,
-  AuditOutlined,
+  BuildOutlined,
+  SwapOutlined 
 } from '@ant-design/icons';
+import { useAuth } from '../../../contexts/AuthContext';
+import { useCompany } from '../../../contexts/CompanyContext';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../../hooks/useAuth';
 
 const { Header: AntHeader } = Layout;
-const { Text } = Typography;
 
-const Header = () => {
-  const navigate = useNavigate();
+export const Header = () => {
   const { user, logout } = useAuth();
-  const [notifications] = useState([
-    { id: 1, title: 'Auditoría programada', description: 'ISO 9001 para mañana' },
-    { id: 2, title: 'Documento por revisar', description: 'Procedimiento actualizado' },
-  ]);
+  const { currentCompany, companies, switchCompany, isSuperAdmin } = useCompany();
+  const navigate = useNavigate();
 
-
-  const userMenu = (
-    <Menu>
-      <Menu.Item key="profile" icon={<UserOutlined />}>
-        Mi Perfil
-      </Menu.Item>
-      <Menu.Item key="settings" icon={<SettingOutlined />}>
-        Configuración
-      </Menu.Item>
-      <Menu.Divider />
-      <Menu.Item key="logout" icon={<LogoutOutlined />} onClick={logout}>
-        Cerrar Sesión
-      </Menu.Item>
-    </Menu>
-  );
-
-  const notificationMenu = (
-    <Menu className="w-80">
-      <Menu.Item key="header" className="font-bold" disabled>
-        Notificaciones
-      </Menu.Item>
-      {notifications.map(notif => (
-        <Menu.Item key={notif.id}>
-          <div>
-            <Text strong>{notif.title}</Text>
-            <br />
-            <Text type="secondary" className="text-xs">{notif.description}</Text>
-          </div>
-        </Menu.Item>
-      ))}
-      <Menu.Divider />
-      <Menu.Item key="viewAll" className="text-center">
-        Ver todas las notificaciones
-      </Menu.Item>
-    </Menu>
-  );
+  const userMenu = [
+    {
+      key: 'profile',
+      icon: <UserOutlined />,
+      label: 'Mi Perfil',
+      onClick: () => navigate('/profile'),
+    },
+    {
+      key: 'settings',
+      icon: <SettingOutlined />,
+      label: 'Configuración',
+      onClick: () => navigate('/settings'),
+    },
+    {
+      type: 'divider',
+    },
+    {
+      key: 'logout',
+      icon: <LogoutOutlined />,
+      label: 'Cerrar Sesión',
+      onClick: logout,
+      danger: true,
+    },
+  ];
 
   return (
-    <AntHeader className="bg-white shadow-sm px-4 flex justify-between items-center">
-      <div className="flex items-center">
-        <div className="text-xl font-bold text-blue-600 mr-8">
-          ISO Certification System
+    <AntHeader style={{ background: '#fff', padding: '0 24px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '100%' }}>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <div style={{ fontSize: '20px', fontWeight: 'bold', marginRight: '32px' }}>
+            ISO Certification System
+          </div>
+          
+          {isSuperAdmin && companies.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <Tooltip title="Cambiar empresa">
+                <SwapOutlined style={{ marginRight: 8, color: '#666' }} />
+              </Tooltip>
+              <Select
+                value={currentCompany?.id}
+                onChange={(companyId) => {
+                  const company = companies.find(c => c.id === companyId);
+                  if (company) switchCompany(company);
+                }}
+                style={{ width: 250 }}
+                placeholder="Seleccionar empresa"
+              >
+                {companies.map(company => (
+                  <Select.Option key={company.id} value={company.id}>
+                    <Space>
+                      <BuildOutlined />
+                      <span>{company.businessName}</span>
+                      <Badge 
+                        status={company.status === 'active' ? 'success' : 'error'} 
+                        text={company.status === 'active' ? 'Activa' : 'Inactiva'}
+                      />
+                    </Space>
+                  </Select.Option>
+                ))}
+              </Select>
+            </div>
+          )}
+          
+          {!isSuperAdmin && currentCompany && (
+            <div style={{ display: 'flex', alignItems: 'center', color: '#666' }}>
+              <BuildOutlined style={{ marginRight: 8 }} />
+              <span>{currentCompany.businessName}</span>
+            </div>
+          )}
         </div>
-        <Menu mode="horizontal" className="border-0">
-          <Menu.Item key="dashboard" icon={<DashboardOutlined />} onClick={() => navigate('/')}>
-            Dashboard
-          </Menu.Item>
-          <Menu.Item key="docs" icon={<FileTextOutlined />} onClick={() => navigate('/documentation')}>
-            Documentación
-          </Menu.Item>
-          <Menu.Item key="risks" icon={<SafetyOutlined />} onClick={() => navigate('/risks')}>
-            Riesgos
-          </Menu.Item>
-          <Menu.Item key="incidents" icon={<AlertOutlined />} onClick={() => navigate('/incidents')}>
-            Incidentes
-          </Menu.Item>
-          <Menu.Item key="audits" icon={<AuditOutlined />} onClick={() => navigate('/audits')}>
-            Auditorías
-          </Menu.Item>
-          <Menu.Item key="logout" icon={<LogoutOutlined />} onClick={logout}>
-            Cerrar Sesión
-          </Menu.Item>
-        </Menu>
-      </div>
-      
-      <Space size="large">
-        <Dropdown overlay={notificationMenu} trigger={['click']} placement="bottomRight">
-          <Badge count={notifications.length} className="cursor-pointer">
-            <BellOutlined className="text-xl" />
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <Badge count={5} size="small">
+            <BellOutlined style={{ fontSize: '18px', cursor: 'pointer' }} />
           </Badge>
-        </Dropdown>
-        
-        <Dropdown overlay={userMenu} trigger={['click']} placement="bottomRight">
-          <Space className="cursor-pointer">
-            <Avatar icon={<UserOutlined />} />
-            <Text>{user?.name || 'Usuario'}</Text>
-          </Space>
-        </Dropdown>
-      </Space>
+          
+          <Dropdown menu={{ items: userMenu }} placement="bottomRight">
+            <Space style={{ cursor: 'pointer' }}>
+              <Avatar icon={<UserOutlined />} />
+              <span>{user?.name} {user?.lastName}</span>
+              <span style={{ fontSize: '12px', color: '#999' }}>({user?.role})</span>
+            </Space>
+          </Dropdown>
+        </div>
+      </div>
     </AntHeader>
   );
 };
-
-export default Header;
