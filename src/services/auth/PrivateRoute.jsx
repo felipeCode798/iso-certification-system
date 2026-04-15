@@ -2,18 +2,20 @@
 import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { Spin } from 'antd';
+import { useAuth } from '../../hooks/useAuth';
 
 const PrivateRoute = () => {
-  const token = localStorage.getItem('token');
-  const user = localStorage.getItem('user');
-  
-  const isAuthenticated = !!token && !!user;
+  const { isAuthenticated, loading } = useAuth();
 
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <Spin size="large" tip="Cargando..." />
+      </div>
+    );
   }
 
-  return <Outlet />;
+  return isAuthenticated ? <Outlet /> : <Navigate to="/login" replace />;
 };
 
 export default PrivateRoute;

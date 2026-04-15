@@ -1,41 +1,196 @@
-// src/pages/Login/LoginPage.jsx
-import React, { useState } from 'react';
-import { Form, Input, Button, Card, message, Tabs, Checkbox, Row, Col, Typography, Divider } from 'antd';
+// src/pages/Login/LoginPage.jsx (CORREGIDO)
+import React, { useState, useEffect } from 'react';
+import { Form, Input, Button, Card, message, Checkbox, Row, Col, Typography, Divider, Tabs, App } from 'antd';
 import { UserOutlined, LockOutlined, MailOutlined, SafetyOutlined, FileTextOutlined, AuditOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 
 const { Title, Text, Link } = Typography;
-const { TabPane } = Tabs;
 
-const LoginPage = () => {
+// Componente interno para usar useApp de Ant Design
+const LoginForm = () => {
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const { message: appMessage } = App.useApp();
+
+  // Redirigir si ya está autenticado
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleLogin = async (values) => {
     setLoading(true);
-    const result = await login(values);
-    if (result.success) {
-      message.success('Bienvenido al Sistema de Gestión ISO');
-      navigate('/');
-    } else {
-      message.error(result.error);
+    try {
+      const result = await login(values);
+      if (result.success) {
+        appMessage.success('Bienvenido al Sistema de Gestión ISO');
+        navigate('/', { replace: true });
+      } else {
+        appMessage.error(result.error || 'Error al iniciar sesión');
+      }
+    } catch (error) {
+      appMessage.error('Error de conexión con el servidor');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleRegister = async (values) => {
-    setLoading(true);
-    setTimeout(() => {
-      message.success('Registro exitoso. Por favor inicie sesión.');
-      setLoading(false);
-    }, 1000);
+    // Implementar registro si es necesario
+    appMessage.info('Función de registro habilitada por el administrador');
   };
 
   const handleForgotPassword = () => {
-    message.info('Se enviará un enlace a su correo para restablecer la contraseña');
+    appMessage.info('Se enviará un enlace a su correo para restablecer la contraseña');
   };
+
+  // Items para el Tabs (reemplazando TabPane deprecated)
+  const tabItems = [
+    {
+      key: 'login',
+      label: 'Iniciar Sesión',
+      children: (
+        <Form
+          name="login"
+          onFinish={handleLogin}
+          layout="vertical"
+          size="large"
+          initialValues={{ email: 'admin@iso.com', password: 'admin123' }}
+        >
+          <Form.Item
+            name="email"
+            rules={[
+              { required: true, message: 'Por favor ingrese su email' },
+              { type: 'email', message: 'Email inválido' }
+            ]}
+          >
+            <Input 
+              prefix={<MailOutlined style={{ color: '#bfbfbf' }} />}
+              placeholder="Email"
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="password"
+            rules={[{ required: true, message: 'Por favor ingrese su contraseña' }]}
+          >
+            <Input.Password
+              prefix={<LockOutlined style={{ color: '#bfbfbf' }} />}
+              placeholder="Contraseña"
+            />
+          </Form.Item>
+
+          <Form.Item>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Checkbox>Recordarme</Checkbox>
+              <Link onClick={handleForgotPassword}>¿Olvidó su contraseña?</Link>
+            </div>
+          </Form.Item>
+
+          <Form.Item>
+            <Button 
+              type="primary" 
+              htmlType="submit" 
+              loading={loading}
+              block
+              size="large"
+            >
+              Iniciar Sesión
+            </Button>
+          </Form.Item>
+
+          <Divider plain>Demo</Divider>
+          <div style={{ textAlign: 'center' }}>
+            <Text type="secondary">Email: admin@iso.com | Contraseña: admin123</Text>
+          </div>
+        </Form>
+      ),
+    },
+    {
+      key: 'register',
+      label: 'Registrarse',
+      children: (
+        <Form
+          name="register"
+          onFinish={handleRegister}
+          layout="vertical"
+          size="large"
+        >
+          <Form.Item
+            name="name"
+            rules={[{ required: true, message: 'Por favor ingrese su nombre' }]}
+          >
+            <Input 
+              prefix={<UserOutlined style={{ color: '#bfbfbf' }} />}
+              placeholder="Nombre completo"
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="email"
+            rules={[
+              { required: true, message: 'Por favor ingrese su email' },
+              { type: 'email', message: 'Email inválido' }
+            ]}
+          >
+            <Input 
+              prefix={<MailOutlined style={{ color: '#bfbfbf' }} />}
+              placeholder="Email"
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="password"
+            rules={[
+              { required: true, message: 'Por favor ingrese su contraseña' },
+              { min: 6, message: 'La contraseña debe tener al menos 6 caracteres' }
+            ]}
+          >
+            <Input.Password
+              prefix={<LockOutlined style={{ color: '#bfbfbf' }} />}
+              placeholder="Contraseña"
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="confirmPassword"
+            dependencies={['password']}
+            rules={[
+              { required: true, message: 'Por favor confirme su contraseña' },
+              ({ getFieldValue }) => ({
+                validator(_, value) {
+                  if (!value || getFieldValue('password') === value) {
+                    return Promise.resolve();
+                  }
+                  return Promise.reject(new Error('Las contraseñas no coinciden'));
+                },
+              }),
+            ]}
+          >
+            <Input.Password
+              prefix={<LockOutlined style={{ color: '#bfbfbf' }} />}
+              placeholder="Confirmar contraseña"
+            />
+          </Form.Item>
+
+          <Form.Item>
+            <Button 
+              type="primary" 
+              htmlType="submit" 
+              loading={loading}
+              block
+              size="large"
+            >
+              Registrarse
+            </Button>
+          </Form.Item>
+        </Form>
+      ),
+    },
+  ];
 
   return (
     <div className="login-container" style={{ 
@@ -125,147 +280,20 @@ const LoginPage = () => {
               </Text>
             </div>
 
-            <Tabs defaultActiveKey="login" centered>
-              <TabPane tab="Iniciar Sesión" key="login">
-                <Form
-                  name="login"
-                  onFinish={handleLogin}
-                  layout="vertical"
-                  size="large"
-                >
-                  <Form.Item
-                    name="email"
-                    rules={[
-                      { required: true, message: 'Por favor ingrese su email' },
-                      { type: 'email', message: 'Email inválido' }
-                    ]}
-                  >
-                    <Input 
-                      prefix={<MailOutlined style={{ color: '#bfbfbf' }} />}
-                      placeholder="Email"
-                      defaultValue="admin@iso.com"
-                    />
-                  </Form.Item>
-
-                  <Form.Item
-                    name="password"
-                    rules={[{ required: true, message: 'Por favor ingrese su contraseña' }]}
-                  >
-                    <Input.Password
-                      prefix={<LockOutlined style={{ color: '#bfbfbf' }} />}
-                      placeholder="Contraseña"
-                      defaultValue="admin123"
-                    />
-                  </Form.Item>
-
-                  <Form.Item>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Checkbox>Recordarme</Checkbox>
-                      <Link onClick={handleForgotPassword}>¿Olvidó su contraseña?</Link>
-                    </div>
-                  </Form.Item>
-
-                  <Form.Item>
-                    <Button 
-                      type="primary" 
-                      htmlType="submit" 
-                      loading={loading}
-                      block
-                      size="large"
-                    >
-                      Iniciar Sesión
-                    </Button>
-                  </Form.Item>
-
-                  <Divider plain>Demo</Divider>
-                  <div style={{ textAlign: 'center' }}>
-                    <Text type="secondary">Email: admin@iso.com | Contraseña: admin123</Text>
-                  </div>
-                </Form>
-              </TabPane>
-
-              <TabPane tab="Registrarse" key="register">
-                <Form
-                  name="register"
-                  onFinish={handleRegister}
-                  layout="vertical"
-                  size="large"
-                >
-                  <Form.Item
-                    name="name"
-                    rules={[{ required: true, message: 'Por favor ingrese su nombre' }]}
-                  >
-                    <Input 
-                      prefix={<UserOutlined style={{ color: '#bfbfbf' }} />}
-                      placeholder="Nombre completo"
-                    />
-                  </Form.Item>
-
-                  <Form.Item
-                    name="email"
-                    rules={[
-                      { required: true, message: 'Por favor ingrese su email' },
-                      { type: 'email', message: 'Email inválido' }
-                    ]}
-                  >
-                    <Input 
-                      prefix={<MailOutlined style={{ color: '#bfbfbf' }} />}
-                      placeholder="Email"
-                    />
-                  </Form.Item>
-
-                  <Form.Item
-                    name="password"
-                    rules={[
-                      { required: true, message: 'Por favor ingrese su contraseña' },
-                      { min: 6, message: 'La contraseña debe tener al menos 6 caracteres' }
-                    ]}
-                  >
-                    <Input.Password
-                      prefix={<LockOutlined style={{ color: '#bfbfbf' }} />}
-                      placeholder="Contraseña"
-                    />
-                  </Form.Item>
-
-                  <Form.Item
-                    name="confirmPassword"
-                    dependencies={['password']}
-                    rules={[
-                      { required: true, message: 'Por favor confirme su contraseña' },
-                      ({ getFieldValue }) => ({
-                        validator(_, value) {
-                          if (!value || getFieldValue('password') === value) {
-                            return Promise.resolve();
-                          }
-                          return Promise.reject(new Error('Las contraseñas no coinciden'));
-                        },
-                      }),
-                    ]}
-                  >
-                    <Input.Password
-                      prefix={<LockOutlined style={{ color: '#bfbfbf' }} />}
-                      placeholder="Confirmar contraseña"
-                    />
-                  </Form.Item>
-
-                  <Form.Item>
-                    <Button 
-                      type="primary" 
-                      htmlType="submit" 
-                      loading={loading}
-                      block
-                      size="large"
-                    >
-                      Registrarse
-                    </Button>
-                  </Form.Item>
-                </Form>
-              </TabPane>
-            </Tabs>
+            <Tabs defaultActiveKey="login" items={tabItems} centered />
           </Card>
         </Col>
       </Row>
     </div>
+  );
+};
+
+// Envolver con App de Ant Design para usar message correctamente
+const LoginPage = () => {
+  return (
+    <App>
+      <LoginForm />
+    </App>
   );
 };
 
